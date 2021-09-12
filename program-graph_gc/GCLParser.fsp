@@ -22,8 +22,8 @@ open ParserTypes
 
 // spefication of the return type of each of the non-terminal symbols
 // where C is starting symbol as specified by the given GCL language
-%type <S> start
-%type <S> statement
+%type <statement> start
+%type <statement> statement
 %type <expression> expression
 %type <boolean> boolean
 
@@ -61,11 +61,11 @@ boolean:
   | expression GET expression     { GrEqThan($1,$3) }
   | expression LT expression	    { LeThan($1,$3) }
   | expression LET expression	    { LeEqThan($1,$3) }
-  | LPAR boolean RPAR			        { $2 }
+  //| LPAR boolean RPAR			        { $2 }
 
 //The grammar for the statement (S) type written in the fslexyacc format
 statement:
-  | VAR ASS expression SEMI				        { Ass($1,$3) }
+  | VAR ASS expression SEMI				        { Ass(Variable $1,$3) }
   | SKIP						                     	{ Skip }
   | statement statement			              { Stats($1,$2) }
   | IF LPAR boolean RPAR LCB statement RCB ELSE LCB statement RCB		{ IfElseStat($3, $6, $10) }

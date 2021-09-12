@@ -63,13 +63,17 @@ and runStat s =
     match s with 
     | Ass(x,a) -> runExpr(x) + " := " + runExpr(a)
 
+//runExpr (Variable "x")
+
+
 let rec isDone e =
     match e with 
-    | ImplyExpr(b,C) -> (NegExpr b)
-    | ElseIfExpr(GC1,GC2) -> (AndExpr (isDone GC1, isDone GC2))
+    | WhileStat(b,s) -> (NegExpr b)
+    //| ElseIfExpr(GC1,GC2) -> (AndExpr (isDone GC1, isDone GC2))
     | _ -> failwith "no matchcase for input isDone"
 
 let rec edges qI qF e = 
+
     match e with
     | Ass(x,a)       -> set [qI, runStat (Ass(x,a)) , qF]
     | Stats(S1,S2)   -> fresh <- fresh + 1
@@ -77,86 +81,67 @@ let rec edges qI qF e =
                         let E1 = edges qI q S1
                         let E2 = edges q qF S2 
                         Set.union E1 E2
-    | IfElseStat(b, s1, s2) ->  let q1 = fresh + 1
-                                let q2 = fresh + 2
-                                fresh <- fresh + 2
-                                let E11 = edges qI q1 b
-                                let E12 = edges q1 qF s1
-                                let E21 = edges qI q2 (runBool NegExpr b) 
-                                let E22 = edges q2 qF s2
-                                Set.union E22 (Set.union E21 (Set.union E11 E12))
-    | IfExpr(GC)            -> edges qI qF GC 
-    | DoExpr(GC)            -> let b = isDone GC
-                               let E = edges qI qI GC
-                               Set.union E (set [qI, (expr b), qF])
-    | ImplyExpr(b,C)        -> fresh <- fresh + 1
+    | IfElseStat(b, s1, s2) -> fresh <- fresh + 1
+                               let q1 = fresh
+                          
+                               let e1 = edges q1 qF s1
+                               let E1 = Set.union (set [qI, runBool b, q1]) e1
+
+                               fresh <- fresh + 1
+                               let q2 = fresh
+                               let e2 = edges q2 qF s2
+                               let E2 = Set.union (set [qI, runBool (NegExpr b), q2]) e2    
+
+                               Set.union E1 E2  
+
+    | IfStat(b,s)           -> fresh <- fresh + 1
                                let q = fresh
-                               let E = edges q qF C
-                               Set.union (set [qI, expr b, q]) E
-    | ElseIfExpr(GC1,GC2)   -> let E1 = edges qI qF GC1
-                               let E2 = edges qI qF GC2
-                               Set.union E1 E2 
+                               let E = edges q qF s
+                               Set.union (set [qI, runBool b, q]) E
+
+    | WhileStat(b,s)        -> let negb = isDone (WhileStat(b,s))
+                               let E = edges qI qI (IfStat(b,s))
+                               Set.union E (set [qI, runBool negb, qF])
     | _ -> failwith "no matchcase for input edges"
 
-
-
-
-
-(*
-//the done function as described in the textbook
-let rec finished gc =
-    match gc with
-    | Func(b,c) -> NegExpr(b)
-    | ElseStat(gc1,gc2) -> AndExpr(finished gc1, finished gc2)
-
-let graph comm =
-    //mutable variable used to increment node numbers in graph
-    let mutable a = -1
-
-    //function handling all command types
-    let rec runthr e q0 q1 =
-        match e with
-        | Ass(s,ex) -> edges q0 q1 (s + ":=" + runExpr ex)
-        | Skip      -> ""
-        | Stats(s1,s2)      ->  let qe = a <- a + 1
-                                         "q" + string a
-                                runthr s1 q0 qe + runthr s2 qe q1
-        | IfElseStat(b, s1, s2) -> runGC gc q0 q1
-        | DoStat(gc) -> runGC gc q0 q0 + edges q0 q1 (runBool (finished gc))
-    
-    *)
-    //function handling guarded command types
- 
+//edges 8 9 (IfElseStat((GrThan(Variable "x", Num 0.0)), (Ass(Variable "x", Num 2.0)),(Ass(Variable "y", Num 2.0))))
+//edges 0 1 (Stats((Ass(Variable "x", Num 2.0)),(Ass(Variable "y", Num 2.0))))
  
 (*    and runGC gc q0 q1 =
         match gc with
         | Func(b,c) ->  let qe = a <- a + 1
                                  "q" + string a
                         edges q0 qe (runBool b) + (runthr c qe q1)
-        | ElseStat(gc1,gc2) -> runGC gc1 q0 q1 + runGC gc2 q0 q1 *)
+        | ElseStat(gc1,gc2) -> runGC gc1 q0 q1 + runGC gc2 q0 q1 
     "digraph program_graph {rankdir=LR;
     node [shape = circle]; q▷;
     node [shape = doublecircle]; q◀; 
-    node [shape = circle]\n" + runthr comm "q▷" "q◀" + "}"
+    node [shape = circle]\n" + edges comm "q▷" "q◀" + "}"*)
 
 
 //function that takes input from user and prints corresponding graphviz file if the given string has valid GCL syntax
 // and gets an error otherwise
-let rec compute =
+let rec compute n =
+    if n = 0 then
+        printfn "Bye bye"
+    else
+        try
         printfn "Enter a GCL code: "
         //try
         // We parse the input string
         let e = parse (Console.ReadLine())
         
         // prints "OK" if given input can be succesfully parsed
-
-        printfn "%A" e
-
-        let b = graph e
-        printfn "%s" b
-        b
+        let qI = fresh
+        fresh <- fresh + 1
+        let qF = fresh
+        let res = (edges qI qF e)
+        printfn "%A" res
+        fresh <- 0
+        compute n 
+        with err -> compute (n-1)
         //if an error occurs (meaning input was not succesfully parsed), the function prints "KO"
         //with err -> e
 
-compute
+compute 3
 

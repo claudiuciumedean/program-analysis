@@ -29,10 +29,10 @@ and boolean =
   | LeEqThan of (expression * expression)
   | BolPar of boolean
 // data type "C" representing its namesake in the given the GCL language
-and S =
+and statement =
     | Ass of (expression * expression)
     | Skip
-    | Stats of (S * S)
-    | IfElseStat of (boolean * S * S)
-    | IfStat of (boolean * S)
-    | WhileStat of (boolean * S)
+    | Stats of (statement * statement)
+    | IfElseStat of (boolean * statement * statement)
+    | IfStat of (boolean * statement)
+    | WhileStat of (boolean * statement)
