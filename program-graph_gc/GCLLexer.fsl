@@ -1,6 +1,7 @@
 {
 module GCLLexer
-open Microsoft.FSharp.Text.Lexing
+open FSharp.Text.Lexing
+open System
 // open token module
 open GCLParser
 }
@@ -25,17 +26,19 @@ rule tokenize = parse
 | num           { NUM(Double.Parse(LexBuffer<_>.LexemeString lexbuf)) }
 | '*'           { TIMES }
 | '/'           { DIV }	
+| '%'           { MOD }	
 | '+'           { PLUS }
 | '-'           { MINUS }
-| '^'           { POW }
 | '('           { LPAR }
 | ')'           { RPAR }
+| '{'           { LCB }
+| '}'           { RCB }
+| '['           { LSB }
+| ']'           { RSB }
 | "true"		{ TRUE }
 | "false"		{ FALSE }
 | '&'			{ AND }
 | '|'			{ OR }
-| "&&"			{ SAND }
-| "||"			{ SOR }
 | '!'			{ NEG }
 | '='			{ EQ }
 | "!="			{ NEQ }
@@ -43,14 +46,12 @@ rule tokenize = parse
 | ">="			{ GET }
 | '<'			{ LT }
 | "<="			{ LET }
-| "->"			{ FUN }
-| "[]"			{ ELSE }
+
+| "else"		{ ELSE }
 | ":="			{ ASS }
 | "skip"		{ SKIP }
 | ";"			{ SEMI }
 | "if"			{ IF }
-| "fi"			{ FI }
-| "do"			{ DO }
-| "od"			{ OD }
+| "while"		{ WHILE }
 | eof           { EOF }
 | variable		{ VAR(LexBuffer<_>.LexemeString lexbuf) }
