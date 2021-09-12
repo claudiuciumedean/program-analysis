@@ -6,15 +6,15 @@ open ParserTypes
 %token <float> NUM
 %token <bool> BOL
 %token <string> VAR
-%token TIMES DIV PLUS MINUS POW LPAR RPAR EOF AND 
-%token OR SAND SOR NEG EQ NEQ GT GET LT LET TRUE FALSE
-%token FUN ELSE ASS SKIP SEMI IF FI DO OD
+%token TIMES DIV MOD PLUS MINUS LPAR RPAR LCB RCB LSB RSB AND 
+%token OR NEG EQ NEQ GT GET LT LET TRUE FALSE
+%token ELSE ASS SKIP SEMI IF WHILE EOF
 
 // Specification of precedence and associativity of the operators ranking from low to high
 %left EQ NEQ GT GET LT LET ELSE
-%left PLUS MINUS OR SOR
-%left TIMES DIV AND SAND
-%right POW SEMI
+%left PLUS MINUS OR
+%left TIMES DIV AND MOD
+%right SEMI
 %left NEG
 
 // declaring the initial non-terminal symbol
@@ -22,30 +22,30 @@ open ParserTypes
 
 // spefication of the return type of each of the non-terminal symbols
 // where C is starting symbol as specified by the given GCL language
-%type <C> start
-%type <C> command
+%type <S> start
+%type <S> statement
 %type <expression> expression
 %type <boolean> boolean
 
 %%
 
 // The first production in "formal" notation is
-// start -> C
+// start -> S
 // here written as:
-start: command EOF             { $1 }
+start: statement EOF             { $1 }
 
 //The grammar for the expression (a) type written in the fslexyacc format
 expression:
   | expression TIMES expression   { TimesExpr($1,$3) }
   | expression DIV expression     { DivExpr($1,$3) }
+  | expression MOD expression     { ModExpr($1,$3) }
   | expression PLUS expression    { PlusExpr($1,$3) }
   | expression MINUS expression   { MinusExpr($1,$3) }
-  | expression POW expression     { PowExpr($1,$3) }
   | PLUS expression               { UPlusExpr($2) }
   | MINUS expression              { UMinusExpr($2) }
   | NUM                           { Num($1) }
   | LPAR expression RPAR          { $2 }
-  | VAR							  { Variable($1) }
+  | VAR							              { Variable($1) }
 
 //The grammar for the boolean (b) type written in the fslexyacc format
 boolean:
@@ -54,28 +54,22 @@ boolean:
   | BOL							  { Bol($1) }
   | boolean AND boolean           { AndExpr($1,$3) }
   | boolean OR boolean            { OrExpr($1,$3) }
-  | boolean SAND boolean		  { ShortAndExpr($1,$3) }
-  | boolean SOR boolean			  { ShortOrExpr($1,$3) }
-  | NEG boolean					  { NegExpr($2) }
+  | NEG boolean					          { NegExpr($2) }
   | expression EQ expression      { Equals($1,$3) }
   | expression NEQ expression     { NotEquals($1,$3) }
-  | expression GT expression	  { GrThan($1,$3) }
+  | expression GT expression	    { GrThan($1,$3) }
   | expression GET expression     { GrEqThan($1,$3) }
-  | expression LT expression	  { LeThan($1,$3) }
-  | expression LET expression	  { LeEqThan($1,$3) }
-  | LPAR boolean RPAR			  { $2 }
+  | expression LT expression	    { LeThan($1,$3) }
+  | expression LET expression	    { LeEqThan($1,$3) }
+  | LPAR boolean RPAR			        { $2 }
 
-//The grammar for the command (C) type written in the fslexyacc format
-command:
-  | VAR ASS expression				{ Ass($1,$3) }
-  | SKIP							{ Skip }
-  | command SEMI command			{ Semi($1,$3) }
-  | IF guardedC FI					{ IfStat($2) }
-  | DO guardedC OD					{ DoStat($2) }
-
-//The grammar for the guardedC (GC) type written in the fslexyacc format
-guardedC:
-  | boolean FUN command				{ Func($1,$3) }
-  | guardedC ELSE guardedC			{ ElseStat($1,$3) }
+//The grammar for the statement (S) type written in the fslexyacc format
+statement:
+  | VAR ASS expression SEMI				        { Ass($1,$3) }
+  | SKIP						                     	{ Skip }
+  | statement statement			              { Stats($1,$2) }
+  | IF LPAR boolean RPAR LCB statement RCB ELSE LCB statement RCB		{ IfElseStat($3, $6, $10) }
+  | IF LPAR boolean RPAR LCB statement RCB				   	{ IfStat($3, $6) }
+  | WHILE LPAR boolean RPAR LCB statement RCB					{ WhileStat($3,$6) }
 
 %%

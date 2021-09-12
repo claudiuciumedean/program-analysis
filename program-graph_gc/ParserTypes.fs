@@ -6,9 +6,9 @@ type expression =
   | Num of float
   | TimesExpr of (expression * expression)
   | DivExpr of (expression * expression)
+  | ModExpr of (expression * expression)
   | PlusExpr of (expression * expression)
   | MinusExpr of (expression * expression)
-  | PowExpr of (expression * expression)
   | UPlusExpr of (expression)
   | UMinusExpr of (expression)
   | Variable of string
@@ -20,8 +20,6 @@ and boolean =
   | Bol of bool
   | AndExpr of (boolean * boolean)
   | OrExpr of (boolean * boolean)
-  | ShortAndExpr of (boolean * boolean)
-  | ShortOrExpr of (boolean * boolean)
   | NegExpr of boolean
   | Equals of (expression * expression)
   | NotEquals of (expression * expression)
@@ -31,13 +29,10 @@ and boolean =
   | LeEqThan of (expression * expression)
   | BolPar of boolean
 // data type "C" representing its namesake in the given the GCL language
-and C =
-    | Ass of (string * expression)
+and S =
+    | Ass of (expression * expression)
     | Skip
-    | Semi of (C * C)
-    | IfStat of (GC)
-    | DoStat of (GC)
-// data type "GC" representing its namesake in the given the GCL language
-and GC =
-    | Func of (boolean * C)
-    | ElseStat of (GC * GC)
+    | Stats of (S * S)
+    | IfElseStat of (boolean * S * S)
+    | IfStat of (boolean * S)
+    | WhileStat of (boolean * S)
