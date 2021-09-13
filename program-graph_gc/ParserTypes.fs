@@ -31,6 +31,7 @@ and boolean =
 // data type "C" representing its namesake in the given the GCL language
 and statement =
     | Ass of (expression * expression)
+    | ArrayAss of (expression * expression * expression)
     | Skip
     | Stats of (statement * statement)
     | IfElseStat of (boolean * statement * statement)

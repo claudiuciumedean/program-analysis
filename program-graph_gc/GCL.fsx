@@ -62,6 +62,7 @@ and runBool bl =
 and runStat s = 
     match s with 
     | Ass(x,a) -> runExpr(x) + " := " + runExpr(a)
+    | ArrayAss(x,a1,a2) -> runExpr(x)+"["+runExpr(a1)+"]" + " := " + runExpr(a2)
 
 //runExpr (Variable "x")
 
@@ -73,9 +74,10 @@ let rec isDone e =
     | _ -> failwith "no matchcase for input isDone"
 
 let rec edges qI qF e = 
-
     match e with
     | Ass(x,a)       -> set [qI, runStat (Ass(x,a)) , qF]
+    | ArrayAss(x,a1,a2)    -> set [qI, runStat(ArrayAss(x,a1,a2)), qF] // not sure how to include array assign otherwise?
+
     | Stats(S1,S2)   -> fresh <- fresh + 1
                         let q = fresh
                         let E1 = edges qI q S1

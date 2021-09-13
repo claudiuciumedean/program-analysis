@@ -66,6 +66,7 @@ boolean:
 //The grammar for the statement (S) type written in the fslexyacc format
 statement:
   | VAR ASS expression SEMI				        { Ass(Variable $1,$3) }
+  | VAR LSB expression RSB ASS expression SEMI { ArrayAss(Variable($1), $3, $6) }
   | SKIP						                     	{ Skip }
   | statement statement			              { Stats($1,$2) }
   | IF LPAR boolean RPAR LCB statement RCB ELSE LCB statement RCB		{ IfElseStat($3, $6, $10) }
