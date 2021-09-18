@@ -30,9 +30,9 @@ and boolean =
   | BolPar of boolean
 // data type "C" representing its namesake in the given the GCL language
 and statement =
-    | Ass of (expression * expression)
-    | Skip
-    | Stats of (statement * statement)
-    | IfElseStat of (boolean * statement * statement)
-    | IfStat of (boolean * statement)
-    | WhileStat of (boolean * statement)
+  | Ass of (expression * expression)
+  | Skip
+  | Stats of (statement * statement)
+  | IfElseStat of (boolean * statement * statement)
+  | IfStat of (boolean * statement)
+  | WhileStat of (boolean * statement)
