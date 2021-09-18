@@ -15,6 +15,8 @@ open GCLParser
 #load "GCLLexer.fs"
 open GCLLexer
 
+let mutable fresh = 0
+
 // Parser function for user input string, accepting only GCL valid syntax
 let parse input =
     // translate string into a buffer of characters
@@ -24,15 +26,7 @@ let parse input =
     // return the result of parsing
     res
 
-//label function used to create strings compatible with the graphviz format
-//let rec edges start stop label = start + " -> " + stop + " [label = \"" + label + "\"];\n"
-
-let mutable fresh = 0
-let mutable flag = "" //untill I know what to do with it..
-
-
-
-//Functions for making appropriate strings of arithmetic and boolean expressions
+//Functions for making appropriate strings of arithmetic, boolean and statement expressions
 let rec runExpr ex =
     match ex with
     | Num(fl) -> string fl
@@ -61,64 +55,111 @@ and runBool bl =
     | BolPar(bl1) -> "(" + runBool bl1 + ")"
 and runStat s = 
     match s with 
-    | Ass(x,a) -> runExpr(x) + " := " + runExpr(a)
-    | ArrayAss(x,a1,a2) -> runExpr(x)+"["+runExpr(a1)+"]" + " := " + runExpr(a2)
+    | Ass(x,a) -> runExpr(x) + ":=" + runExpr(a)
+    | ArrayAss(x,a1,a2) -> runExpr(x)+"["+runExpr(a1)+"]" + ":=" + runExpr(a2)
 
-//runExpr (Variable "x")
+//runExpr (Variable "x") // test
 
+// prints the grafical string representation of a (set) pg
+let rec printSet s = Set.iter (fun (qI,st,qF) -> printfn "q%s -> q%s [label = \"%s\"];" qI qF st) s
+let printGraphviz s = printfn "\nGraphviz:"
+                      printfn  "digraph program_graph {rankdir=LR; \nnode [shape = circle]; q▷; \nnode [shape = doublecircle]; q◀; \nnode [shape = circle] "
+                      printSet s
+                      printfn "}"
 
-let rec isDone e =
+(*let rec isDone e = 
     match e with 
     | WhileStat(b,s) -> (NegExpr b)
     //| ElseIfExpr(GC1,GC2) -> (AndExpr (isDone GC1, isDone GC2))
     | _ -> failwith "no matchcase for input isDone"
-
+*)
 let rec edges qI qF e = 
     match e with
-    | Ass(x,a)       -> set [qI, runStat (Ass(x,a)) , qF]
-    | ArrayAss(x,a1,a2)    -> set [qI, runStat(ArrayAss(x,a1,a2)), qF] // not sure how to include array assign otherwise?
+    | Ass(x,a)              -> set [qI, runStat (Ass(x,a)) , qF]
+    | ArrayAss(x,a1,a2)     -> set [qI, runStat(ArrayAss(x,a1,a2)), qF] // not sure how to include array assign otherwise?
 
-    | Stats(S1,S2)   -> fresh <- fresh + 1
-                        let q = fresh
-                        let E1 = edges qI q S1
-                        let E2 = edges q qF S2 
-                        Set.union E1 E2
+    | Stats(S1,S2)          -> fresh <- fresh + 1
+                               let q = string fresh
+                               let E1 = edges qI q S1
+                               let E2 = edges q qF S2 
+                               Set.union E1 E2
     | IfElseStat(b, s1, s2) -> fresh <- fresh + 1
-                               let q1 = fresh
-                          
+                               let q1 = string fresh             
                                let e1 = edges q1 qF s1
                                let E1 = Set.union (set [qI, runBool b, q1]) e1
 
                                fresh <- fresh + 1
-                               let q2 = fresh
+                               let q2 = string fresh
                                let e2 = edges q2 qF s2
                                let E2 = Set.union (set [qI, runBool (NegExpr b), q2]) e2    
 
                                Set.union E1 E2  
 
     | IfStat(b,s)           -> fresh <- fresh + 1
-                               let q = fresh
+                               let q = string fresh
                                let E = edges q qF s
                                Set.union (set [qI, runBool b, q]) E
 
-    | WhileStat(b,s)        -> let negb = isDone (WhileStat(b,s))
-                               let E = edges qI qI (IfStat(b,s))
-                               Set.union E (set [qI, runBool negb, qF])
-    | _ -> failwith "no matchcase for input edges"
+    | WhileStat(b,s)        -> let E = edges qI qI (IfStat(b,s))
+                               Set.union E (set [qI, runBool (NegExpr b), qF]) 
+    | _ -> failwith "no matchcase for edges input"
 
-//edges 8 9 (IfElseStat((GrThan(Variable "x", Num 0.0)), (Ass(Variable "x", Num 2.0)),(Ass(Variable "y", Num 2.0))))
-//edges 0 1 (Stats((Ass(Variable "x", Num 2.0)),(Ass(Variable "y", Num 2.0))))
+// test: 
+// edges "▷" "◀" (IfElseStat((GrThan(Variable "x", Num 0.0)), (Ass(Variable "x", Num 2.0)),(Ass(Variable "y", Num 2.0)))) 
+// edges "▷" "◀" (Stats((Ass(Variable "x", Num 2.0)),(Ass(Variable "y", Num 2.0))))
  
-(*    and runGC gc q0 q1 =
-        match gc with
-        | Func(b,c) ->  let qe = a <- a + 1
-                                 "q" + string a
-                        edges q0 qe (runBool b) + (runthr c qe q1)
-        | ElseStat(gc1,gc2) -> runGC gc1 q0 q1 + runGC gc2 q0 q1 
-    "digraph program_graph {rankdir=LR;
-    node [shape = circle]; q▷;
-    node [shape = doublecircle]; q◀; 
-    node [shape = circle]\n" + edges comm "q▷" "q◀" + "}"*)
+
+// not done !!!
+let rec fva a =
+    match a with
+    | Variable(x)            -> Set [x]
+    | Num(n)                 -> Set.empty
+    //| Array(a1,a2)           -> 
+    | PlusExpr(a1,a2)         
+    | MinusExpr(a1,a2)        
+    | ModExpr(a1,a2) 
+    | TimesExpr(a1,a2)       
+    | DivExpr(a1,a2)         -> Set.union (fva a1) (fva a2)  
+    | UMinusExpr(a0)         -> fva a0
+and fvb b =    
+    match b with
+    | True 
+    | False                  -> Set.empty
+    | AndExpr(b1,b2)          
+    | OrExpr(b1,b2)          -> Set.union (fvb b1) (fvb b2) 
+    | NegExpr(b0)            -> fvb b0
+    | Equals(a1,a2)       
+    | NotEquals(a1,a2)     
+    | GrThan(a1,a2)       
+    | GrEqThan(a1,a2)  
+    | LeThan(a1,a2)         
+    | LeEqThan(a1,a2)        -> Set.union (fva a1) (fva a2)   
+    |_ -> failwith "error in fv"
+
+//fvb (LeThan (Variable "y", Variable "x"))
+
+// not done see p 27
+let killLV e =
+    match e with 
+    | Ass(x,a) -> fva x 
+    |_ -> Set.empty
+
+// not done see p 27
+let rec genLV e =
+    match e with 
+    | Ass(x,a) -> fva a 
+and genLVb e = 
+    match e with
+    | OrExpr(a1,a2) -> fvb (OrExpr(a1,a2))
+
+    //| _ -> Set.empty
+ 
+
+killLV (Ass (Variable "r", MinusExpr (Variable "r", Variable "y")))
+genLV (Ass (Variable "r", MinusExpr (Variable "r", Variable "y")))
+
+genLVb  (OrExpr (True, True))
+
 
 
 //function that takes input from user and prints corresponding graphviz file if the given string has valid GCL syntax
@@ -129,21 +170,17 @@ let rec compute n =
     else
         try
         printfn "Enter a GCL code: "
-        //try
-        // We parse the input string
-        let e = parse (Console.ReadLine())
-        
-        // prints "OK" if given input can be succesfully parsed
-        let qI = fresh
-        fresh <- fresh + 1
-        let qF = fresh
-        let res = (edges qI qF e)
-        printfn "%A" res
+        // parse the input string (program)
+        let ast = parse (Console.ReadLine())
+        printfn "AST:\n%A" ast
+
+        let pg = (edges "▷" "◀" ast)
+        printfn "PG:\n%A" pg
+        printGraphviz pg
+
         fresh <- 0
         compute n 
-        with err -> compute (n-1)
-        //if an error occurs (meaning input was not succesfully parsed), the function prints "KO"
-        //with err -> e
-
+        with err -> printfn "Input is not a valid MicroC program.\n"
+                    compute (n-1) 
 compute 3
 
