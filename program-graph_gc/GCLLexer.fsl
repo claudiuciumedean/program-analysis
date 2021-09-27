@@ -23,7 +23,7 @@ rule tokenize = parse
 | newline       { lexbuf.EndPos <- lexbuf.EndPos.NextLine; tokenize lexbuf; }
 
 // symbols/strings and their associated token to be built
-| num           { NUM(Double.Parse(LexBuffer<_>.LexemeString lexbuf)) }
+| num           { NUM(Int32.Parse(LexBuffer<_>.LexemeString lexbuf)) }
 | '*'           { TIMES }
 | '/'           { DIV }	
 | '%'           { MOD }	
