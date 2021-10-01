@@ -159,7 +159,7 @@ let reachingDefinitions edges =
             over <- true
     rd
 
-printfn "%A" (reachingDefinitions (set [(0, "y", 2); (2, "", 1); (2, "", 3); (3, "y", 4); (4, "x", 2)]))
+printfn "%A" (reachingDefinitions (set [(0, "y", 1); (1, "x", 2); (2, "", 3); (3, "", 4); (4, "y", 2); (3, "", 5); (5, "x", 2); (2, "", 6)]))
 
 //function that takes input from user and prints corresponding graphviz file if the given string has valid GCL syntax
 // and gets an error otherwise
