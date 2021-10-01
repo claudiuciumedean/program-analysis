@@ -167,8 +167,10 @@ genLV e3
 
 
 // TODO - Create this function to get variable in assignments
-// let def alpha = 
-    
+let def alpha = 
+    match alpha with 
+    | Ass(Variable(x),_) -> x
+    | _ -> ""
 
 let getNodes edgesSet = 
     let mutable nodes = Set.empty
@@ -179,7 +181,7 @@ let getNodes edgesSet =
 let getVariables edges = 
     let mutable variables = Set.empty
     for (_, x , _) in edges do
-        variables <- variables.Add(x) // Change to have (def x) instead of x 
+        variables <- variables.Add(def x)
     Set.toList variables
 
 let reachingDefinitions edges = 
@@ -193,13 +195,14 @@ let reachingDefinitions edges =
     while not over do 
         let mutable newRd = false
         for (q1, alpha, q2) in (Set.toList edges) do
+            let variable =  def alpha
             let mutable kill = Set.empty
-            let mutable gen = Set.empty // Change to have (def alpha) instead of alpha 
-            if (alpha <> "") then // TO CHANGE with definition of alpha
-                gen <- gen.Add(alpha, q1, q2)
+            let mutable gen = Set.empty  
+            if (variable <> "") then 
+                gen <- gen.Add(variable, q1, q2)
             for q in (List.append nodes [-1]) do
                 for q' in nodes do
-                    kill <- kill.Add(alpha, q, q') // Change to have (def alpha) instead of alpha 
+                    kill <- kill.Add(variable, q, q') // Change to have (def alpha) instead of alpha 
             if not (Set.isSubset (Set.union (Set.difference rd.[q1] kill) gen) rd.[q2]) then
                 newRd <- true
                 rd.[q2] <- (Set.union rd.[q2] (Set.union (Set.difference rd.[q1] kill) gen))
@@ -207,7 +210,8 @@ let reachingDefinitions edges =
             over <- true
     rd
 
-printfn "%A" (reachingDefinitions (set [(0, "y", 1); (1, "x", 2); (2, "", 3); (3, "", 4); (4, "y", 2); (3, "", 5); (5, "x", 2); (2, "", 6)]))
+//y:= 1; x:=2;  while (x<=100) { if (y <10) { y := y +1; } else {x := x +10;}}
+//printfn "%A" (reachingDefinitions (set [(0, "y", 1); (1, "x", 2); (2, "", 3); (3, "", 4); (4, "y", 2); (3, "", 5); (5, "x", 2); (2, "", 6)]))
 
 //function that takes input from user and prints corresponding graphviz file if the given string has valid GCL syntax
 // and gets an error otherwise
@@ -215,20 +219,18 @@ let rec compute n =
     if n = 0 then
         printfn "Bye bye"
     else
-        try
         printfn "Enter a GCL code: "
         // parse the input string (program)
         let ast = parse (Console.ReadLine())
         printfn "AST:\n%A" ast
 
-        let pg = (edges 0 -1 ast) 
+        let pg = (edges 0 6 ast) 
         printfn "PG:\n%A" pg
+        printfn "RD:\n%A" (reachingDefinitions pg)
         //printGraphviz pg
 
         fresh <- 0
         compute n 
-        with err -> printfn "Input is not a valid MicroC program.\n"
-                    compute (n-1) 
 compute 3
 
 //getNodes (set [(0, "y := 1", 2); (2, "!(x>0)", 1); (2, "x>0", 3); (3, "y := y*x", 4); (4, "x := x-1", 2)])

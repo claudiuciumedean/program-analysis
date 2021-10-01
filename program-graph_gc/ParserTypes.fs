@@ -31,7 +31,7 @@ type expr =
 //and statement =
   | Ass of (expr * expr)
   | ArrayAss of (expr * expr * expr)
-  | Skip
+  | Skip // Should be removed
   | Stats of (expr * expr)
   | IfElseStat of (expr * expr * expr)
   | IfStat of (expr * expr)
