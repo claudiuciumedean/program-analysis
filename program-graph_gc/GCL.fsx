@@ -1,9 +1,9 @@
 ﻿//path to run fsLexYacc
 //should be changed depending on which system the script is run
 // Windows (Stina)
-#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
-// for mac maybe?
-//#r "C:/Users/pc/.nuget/packages/fslexyacc.runtime/7.0.6/lib/portable-net45+netcore45+wpa81+wp8+MonoAndroid10+MonoTouch10/FsLexYacc.Runtime.dll"
+//#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
+// Julien 
+#r "/Users/Julien/F#/FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 
 // import of modules, including lexer and parser
 open FSharp.Text.Lexing
@@ -166,6 +166,48 @@ killLV e3
 genLV e3
 
 
+// TODO - Create this function to get variable in assignments
+// let def alpha = 
+    
+
+let getNodes edgesSet = 
+    let mutable nodes = Set.empty
+    for (q1, _, q2) in Set.toList edgesSet do
+        nodes <- nodes.Add(q1).Add(q2)
+    Set.toList nodes
+
+let getVariables edges = 
+    let mutable variables = Set.empty
+    for (_, x , _) in edges do
+        variables <- variables.Add(x) // Change to have (def x) instead of x 
+    Set.toList variables
+
+let reachingDefinitions edges = 
+    let nodes = getNodes edges
+    let variables = getVariables edges
+    let rd = Array.create (nodes.Length) (Set.empty)
+    for variable in variables do 
+        if (variable <> "") then // TODO Change with definition
+            rd.[0] <- rd.[0].Add(variable, -1, 0)
+    let mutable over = false
+    while not over do 
+        let mutable newRd = false
+        for (q1, alpha, q2) in (Set.toList edges) do
+            let mutable kill = Set.empty
+            let mutable gen = Set.empty // Change to have (def alpha) instead of alpha 
+            if (alpha <> "") then // TO CHANGE with definition of alpha
+                gen <- gen.Add(alpha, q1, q2)
+            for q in (List.append nodes [-1]) do
+                for q' in nodes do
+                    kill <- kill.Add(alpha, q, q') // Change to have (def alpha) instead of alpha 
+            if not (Set.isSubset (Set.union (Set.difference rd.[q1] kill) gen) rd.[q2]) then
+                newRd <- true
+                rd.[q2] <- (Set.union rd.[q2] (Set.union (Set.difference rd.[q1] kill) gen))
+        if not newRd then 
+            over <- true
+    rd
+
+printfn "%A" (reachingDefinitions (set [(0, "y", 1); (1, "x", 2); (2, "", 3); (3, "", 4); (4, "y", 2); (3, "", 5); (5, "x", 2); (2, "", 6)]))
 
 //function that takes input from user and prints corresponding graphviz file if the given string has valid GCL syntax
 // and gets an error otherwise
@@ -189,3 +231,18 @@ let rec compute n =
                     compute (n-1) 
 compute 3
 
+//getNodes (set [(0, "y := 1", 2); (2, "!(x>0)", 1); (2, "x>0", 3); (3, "y := y*x", 4); (4, "x := x-1", 2)])
+
+
+// ReadingDefinition set = 
+//      Create new Array RD of size number of nodes with empty sets inside
+//      Go through all the edges to determine all the variables (Using DEF function)
+//      Add the truples (x,?,q0})to the set RD[0] for every variable x
+//      Loop on the edges :  
+//          (x, q', q'') and edge 
+//          compute the set KILL with (x, Q?, Q), Q being the set of all the nodes
+//          compute the set Gen = {(x, q', q'')}
+//           if RD[q'] / KILL U GEN !C= RD(q'') then 
+//              RD[q''] = RD(q'') U RD(q') / Kill U GEN 
+//              start the loop again
+//      No more "adding edges", we are done
