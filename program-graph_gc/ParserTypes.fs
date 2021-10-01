@@ -2,37 +2,37 @@
 module ParserTypes
 
 //data type "expression" representing "a" in the given the GCL language
-type expression =
-  | Num of float
-  | TimesExpr of (expression * expression)
-  | DivExpr of (expression * expression)
-  | ModExpr of (expression * expression)
-  | PlusExpr of (expression * expression)
-  | MinusExpr of (expression * expression)
-  | UPlusExpr of (expression)
-  | UMinusExpr of (expression)
+type expr =
+  | Num of int
+  | TimesExpr of (expr * expr)
+  | DivExpr of (expr * expr)
+  | ModExpr of (expr * expr)
+  | PlusExpr of (expr * expr)
+  | MinusExpr of (expr * expr)
+  | UPlusExpr of (expr)
+  | UMinusExpr of (expr)
   | Variable of string
-
 // data type "boolean" representing "b" in the given the GCL language
-and boolean =  
+//and boolean =  
   | True
   | False
-  | Bol of bool
-  | AndExpr of (boolean * boolean)
-  | OrExpr of (boolean * boolean)
-  | NegExpr of boolean
-  | Equals of (expression * expression)
-  | NotEquals of (expression * expression)
-  | GrThan of (expression * expression)
-  | GrEqThan of (expression * expression)
-  | LeThan of (expression * expression)
-  | LeEqThan of (expression * expression)
-  | BolPar of boolean
+  | Bol of expr
+  | AndExpr of (expr * expr)
+  | OrExpr of (expr * expr)
+  | NegExpr of expr
+  | Equals of (expr * expr)
+  | NotEquals of (expr * expr)
+  | GrThan of (expr * expr)
+  | GrEqThan of (expr * expr)
+  | LeThan of (expr * expr)
+  | LeEqThan of (expr * expr)
+  | BolPar of expr
 // data type "C" representing its namesake in the given the GCL language
-and statement =
-  | Ass of (expression * expression)
+//and statement =
+  | Ass of (expr * expr)
+  | ArrayAss of (expr * expr * expr)
   | Skip
-  | Stats of (statement * statement)
-  | IfElseStat of (boolean * statement * statement)
-  | IfStat of (boolean * statement)
-  | WhileStat of (boolean * statement)
+  | Stats of (expr * expr)
+  | IfElseStat of (expr * expr * expr)
+  | IfStat of (expr * expr)
+  | WhileStat of (expr * expr) 
