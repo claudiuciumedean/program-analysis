@@ -6,15 +6,17 @@ open ParserTypes
 %token <int> NUM
 %token BOL
 %token <string> VAR
+%token INT
 %token TIMES DIV MOD PLUS MINUS LPAR RPAR LCB RCB LSB RSB AND 
 %token OR NEG EQ NEQ GT GET LT LET TRUE FALSE
-%token ELSE ASS SKIP SEMI IF WHILE EOF
+%token ELSE ASSIGN SKIP SEMI COMMA IF WHILE READ WRITE FST SND DOT EOF 
 
 // Specification of precedence and associativity of the operators ranking from low to high
 %left EQ NEQ GT GET LT LET ELSE
 %left PLUS MINUS OR
 %left TIMES DIV AND MOD
-%right SEMI
+%left SEMI
+%left INT
 %left NEG
 
 // declaring the initial non-terminal symbol
@@ -22,56 +24,85 @@ open ParserTypes
 
 // spefication of the return type of each of the non-terminal symbols
 // where C is starting symbol as specified by the given GCL language
-%type <expr> start
+%type <p> start
 //%type <statement> start
-//%type <statement> statement
-%type <expr> expr
-//%type <boolean> boolean
+//%type <p> p
+%type <s> s
+%type <l> l
+%type <a> a
+%type <b> b
+%type <d> d
 
 %%
 
 // The first production in "formal" notation is
 // start -> S
 // here written as:
-start: statement EOF             { $1 }
+start: p EOF             { $1 }
 
-//The grammar for the expression (a) type written in the fslexyacc format
-expr:
-  | expr TIMES expr   { TimesExpr($1,$3) }
-  | expr DIV expr     { DivExpr($1,$3) }
-  | expr MOD expr     { ModExpr($1,$3) }
-  | expr PLUS expr    { PlusExpr($1,$3) }
-  | expr MINUS expr   { MinusExpr($1,$3) }
-  | PLUS expr               { UPlusExpr($2) }
-  | MINUS expr              { UMinusExpr($2) }
-  | NUM                           { Num($1) }
-  | LPAR expr RPAR          { $2 }
-  | VAR							              { Variable($1) }
+//The grammar for the Program (P) type written in the fslexyacc format
+p:
+   | LCB d s RCB { Program($2,$3) }   //of some reason i cannot make it work using '{''}'
+   ;
 
-//The grammar for the boolean (b) type written in the fslexyacc format
-boolean:
-  | TRUE						  { True }
-  | FALSE						  { False }
-  //| BOL							  { Bol($1) }
-  | boolean AND boolean           { AndExpr($1,$3) }
-  | boolean OR boolean            { OrExpr($1,$3) }
-  | NEG boolean					          { NegExpr($2) }
-  | expr EQ expr      { Equals($1,$3) }
-  | expr NEQ expr     { NotEquals($1,$3) }
-  | expr GT expr	    { GrThan($1,$3) }
-  | expr GET expr     { GrEqThan($1,$3) }
-  | expr LT expr	    { LeThan($1,$3) }
-  | expr LET expr	    { LeEqThan($1,$3) }
-  //| LPAR expr RPAR			        { $2 }
+//The grammar for the Statement (S) type written in the fslexyacc format
+s:
+  | VAR ASSIGN a SEMI                       { Assign(Var $1,$3) }   // weired that it will not work with just 'l'
+  | l ASSIGN a SEMI				                  { Assign($1,$3) }
+  | VAR ASSIGN LPAR a COMMA a RPAR SEMI     { RecordAssign(Var $1,$4,$6)}
+  | s s			                                { Stats($1,$2) }
+  | IF LPAR b RPAR LCB s RCB		            { IfStat($3, $6) }
+  | IF LPAR b RPAR LCB s RCB ELSE LCB s RCB	{ IfElseStat($3, $6, $10) }
+  | WHILE LPAR b RPAR LCB s RCB					    { WhileStat($3,$6) }
+  | READ l SEMI                             { Read($2) }
+  | WRITE a SEMI                            { Write($2) }
+  ;
 
-//The grammar for the statement (S) type written in the fslexyacc format
-statement:
-  | VAR ASS expr SEMI				        { Ass(Variable $1,$3) }
-  | VAR LSB expr RSB ASS expr SEMI { ArrayAss(Variable($1), $3, $6) }
-  | SKIP						                     	{ Skip }
-  | statement statement			              { Stats($1,$2) }
-  | IF LPAR boolean RPAR LCB statement RCB ELSE LCB statement RCB		{ IfElseStat($3, $6, $10) }
-  | IF LPAR boolean RPAR LCB statement RCB				   	{ IfStat($3, $6) }
-  | WHILE LPAR boolean RPAR LCB statement RCB					{ WhileStat($3,$6) }
+//The grammar for the label expression (l) type written in the fslexyacc format
+l:
+  | VAR					  { Var($1) }
+  | VAR LSB a RSB { Array(Var $1, $3) }
+  | VAR DOT FST   { Fst(Var $1)}
+  | VAR DOT SND   { Snd(Var $1)}
+  ;
+
+//The grammar for the arithmitic expression (a) type written in the fslexyacc format
+a:  
+  | NUM          { Num($1) }
+  //| VAR					 { Var($1) }   // how can this be added in both l and a??
+  | LPAR a RPAR  { $2 }
+  | a TIMES a    { TimesExpr($1,$3) }
+  | a DIV a      { DivExpr($1,$3) }
+  | a MOD a      { ModExpr($1,$3) }
+  | a PLUS a     { PlusExpr($1,$3) }
+  | a MINUS a    { MinusExpr($1,$3) }
+  | PLUS a       { UPlusExpr($2) }
+  | MINUS a      { UMinusExpr($2) }
+  ;
+
+//The grammar for the boolean expression (b) type written in the fslexyacc format
+b:
+  | TRUE						{ True }
+  | FALSE						{ False }
+  //| BOL					  { Bol($1) }
+  | b AND b         { AndExpr($1,$3) }
+  | b OR b          { OrExpr($1,$3) }
+  | NEG b					  { NegExpr($2) }
+  | a EQ a          { Equals($1,$3) }
+  | a NEQ a         { NotEquals($1,$3) }
+  | a GT a	        { GrThan($1,$3) }
+  | a GET a         { GrEqThan($1,$3) }
+  | a LT a	        { LeThan($1,$3) }
+  | a LET a	        { LeEqThan($1,$3) }
+  //| LPAR b RPAR	  { $2 }
+  ;
+
+//The grammar for the Declaration (D) type written in the fslexyacc format
+d:
+  | INT VAR SEMI             { VarInt(Var $2) }
+  | INT LSB NUM RSB VAR SEMI { ArrayInt(Num $3, Var $5)}
+  | d d                      { Decl($1,$2) }
+  ;
+  
 
 %%

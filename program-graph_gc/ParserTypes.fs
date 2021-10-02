@@ -1,38 +1,53 @@
 
 module ParserTypes
 
-//data type "expression" representing "a" in the given the GCL language
-type expr =
+type p =
+  | Program of (d * s)
+and s =
+  | Assign of (l * a)
+  | RecordAssign of (l * a * a)
+  | Stats of (s * s)
+  | IfStat of (b * s)
+  | IfElseStat of (b * s * s)
+  | WhileStat of (b * s) 
+  | Read of l
+  | Write of a 
+and l = 
+  | Var of string
+  | Array of (l * a) 
+  | Fst of l
+  | Snd of l
+and a =
   | Num of int
-  | TimesExpr of (expr * expr)
-  | DivExpr of (expr * expr)
-  | ModExpr of (expr * expr)
-  | PlusExpr of (expr * expr)
-  | MinusExpr of (expr * expr)
-  | UPlusExpr of (expr)
-  | UMinusExpr of (expr)
-  | Variable of string
-// data type "boolean" representing "b" in the given the GCL language
-//and boolean =  
+  //| Var of string
+  | PlusExpr of (a * a)
+  | MinusExpr of (a * a)
+  | TimesExpr of (a * a)
+  | DivExpr of (a * a)
+  | ModExpr of (a * a)
+  | UPlusExpr of a
+  | UMinusExpr of a
+and b =
   | True
   | False
-  | Bol of expr
-  | AndExpr of (expr * expr)
-  | OrExpr of (expr * expr)
-  | NegExpr of expr
-  | Equals of (expr * expr)
-  | NotEquals of (expr * expr)
-  | GrThan of (expr * expr)
-  | GrEqThan of (expr * expr)
-  | LeThan of (expr * expr)
-  | LeEqThan of (expr * expr)
-  | BolPar of expr
-// data type "C" representing its namesake in the given the GCL language
-//and statement =
-  | Ass of (expr * expr)
-  | ArrayAss of (expr * expr * expr)
-  | Skip
-  | Stats of (expr * expr)
-  | IfElseStat of (expr * expr * expr)
-  | IfStat of (expr * expr)
-  | WhileStat of (expr * expr) 
+  | Bol of b
+  | AndExpr of (b * b)
+  | OrExpr of (b * b)
+  | NegExpr of b
+  | Equals of (a * a)
+  | NotEquals of (a * a)
+  | GrThan of (a * a)
+  | GrEqThan of (a * a)
+  | LeThan of (a * a)
+  | LeEqThan of (a * a)
+  | BolPar of b
+and d =
+  | VarInt of (l)
+  | ArrayInt of (a * l)
+  | Decl of (d * d)
+
+
+//Init("int", Var "x")
+//(Equals(Num 2,Num 2))
+//((Program(VarInt(Var "x"),Assign(Var "x", Num 2))))
+//Init("int", "x")

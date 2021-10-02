@@ -11,7 +11,7 @@ let digit       = ['0'-'9']
 let num         = digit+ ( '.' digit+)?  ('E' ('+'|'-')? digit+ )?
 let whitespace  = [' ' '\t']
 let newline     = "\n\r" | '\n' | '\r'
-let variable	= ['a'-'z''A'-'Z'](['a'-'z''A'-'Z''_'] | digit)*
+let var     	= ['a'-'z''A'-'Z'](['a'-'z''A'-'Z''_'] | digit)*
 
 
 //define rules and what tokens should be generated when encountering
@@ -47,11 +47,19 @@ rule tokenize = parse
 | '<'			{ LT }
 | "<="			{ LET }
 
+| "read"        { READ } 
+| "write"       { WRITE } 
+| "int"         { INT }
+| "fst"         { FST }
+| "snd"         { SND }
+
 | "else"		{ ELSE }
-| ":="			{ ASS }
+| ":="			{ ASSIGN }
 | "skip"		{ SKIP }
 | ";"			{ SEMI }
+| ','           { COMMA }
+| '.'           { DOT }
 | "if"			{ IF }
 | "while"		{ WHILE }
 | eof           { EOF }
-| variable		{ VAR(LexBuffer<_>.LexemeString lexbuf) }
+| var		    { VAR(LexBuffer<_>.LexemeString lexbuf) }
