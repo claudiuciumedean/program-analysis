@@ -159,6 +159,84 @@ let reachingDefinitions edges =
             over <- true
     rd
 
+let rec fv a =
+    match a with
+    | ExprA(a) -> match a with
+                    | VariableA(x) -> Set [x]
+                    | ArrayExpressionA(A, a) -> Set.union (Set [A]) (fv(ExprA(a)))
+                    | FirstRecordA(R) -> Set [R]
+                    | SecondRecordA(R) -> Set [R]
+                    | PlusExpr(a1, a2) -> Set.union (fv(ExprA(a1))) (fv(ExprA(a2)))
+                    | MinusExpr(a1, a2) -> Set.union (fv(ExprA(a1))) (fv(ExprA(a2)))
+                    | TimesExpr(a1, a2) -> Set.union (fv(ExprA(a1))) (fv(ExprA(a2)))  
+                    | DivExpr(a1, a2) -> Set.union (fv(ExprA(a1))) (fv(ExprA(a2)))
+                    | ModExpr(a1, a2) -> Set.union (fv(ExprA(a1))) (fv(ExprA(a2)))
+                    | _ -> Set.empty
+    | ExprB(b) -> match b with 
+                    | LeThan(a1, a2) -> Set.union (fv(ExprA(a1))) (fv(ExprA(a2)))
+                    | GrThan(a1, a2) -> Set.union (fv(ExprA(a1))) (fv(ExprA(a2)))
+                    | LeEqThan(a1, a2) -> Set.union (fv(ExprA(a1))) (fv(ExprA(a2)))
+                    | GrEqThan(a1, a2) -> Set.union (fv(ExprA(a1))) (fv(ExprA(a2)))
+                    | Equals(a1, a2) -> Set.union (fv(ExprA(a1))) (fv(ExprA(a2)))
+                    | NotEquals(a1, a2) -> Set.union (fv(ExprA(a1))) (fv(ExprA(a2)))
+                    | AndExpr(b1, b2) -> Set.union (fv(ExprB(b1))) (fv(ExprB(b2)))
+                    | OrExpr(b1, b2) -> Set.union (fv(ExprB(b1))) (fv(ExprB(b2)))
+                    | NegExpr(b) -> fv(ExprB(b))
+                    | _ -> Set.empty
+
+let kill_lv alpha = 
+    match alpha with 
+    | Declaration(d)    -> match d with 
+                            | VariableDeclaration(x)    -> Set [x]
+                            | ArrayDeclaration(_,A)     -> Set [A]
+                            | RecordDeclaration(R)      -> Set [R]
+                            | _                         -> Set.empty
+    | Statement(s)      -> match s with 
+                            | AssX(x, _)    -> Set [x]
+                            | Ass(l, _)     -> match l with 
+                                                | VariableL(x) -> Set [x]
+                                                | _ -> Set.empty
+                            | RecordAss(R, _, _) -> Set [R]
+                            | Read(l)            -> match l with 
+                                                    | VariableL(x) -> Set [x]
+                                                    | _             -> Set.empty
+                            | _         -> Set.empty
+    | _                 -> Set.empty
+ 
+let gen_lv alpha = 
+    match alpha with 
+    | Statement(s)      -> match s with 
+                            | AssX(_, a)    -> fv(ExprA(a))
+                            | Ass(l, a)     -> match l with 
+                                                | VariableL(_) -> fv(ExprA(a))
+                                                | ArrayExpressionL(_, a2) -> Set.union (fv(ExprA(a))) (fv(ExprA(a2)))
+                                                | FirstRecordL(_)       -> fv(ExprA(a))
+                                                | SecondRecordL(_) -> fv(ExprA(a))
+                            | RecordAss(R, a1, a2) -> Set.union (fv(ExprA(a1))) (fv(ExprA(a2)))
+                            | Write(a)            -> fv(ExprA(a))
+                            | _         -> Set.empty
+    | ExprB(b) -> fv(ExprB(b))
+    | _                 -> Set.empty
+
+let liveVariables edges =
+    let nodes = getNodes edges
+    let liveVariablesArr = Array.create (nodes.Length) (Set.empty)
+    let mutable terminate = false
+ 
+    while not terminate do
+        let mutable new_lv = false
+        for (q1, alpha, q2) in (Set.toList edges) do
+            let kill = kill_lv alpha
+            let gen = gen_lv alpha
+            if not (Set.isSubset (Set.union (Set.difference liveVariablesArr.[q2] kill) gen) liveVariablesArr.[q1]) then
+                new_lv <- true
+                liveVariablesArr.[q1] <- (Set.union liveVariablesArr.[q1] (Set.union (Set.difference liveVariablesArr.[q2] kill) gen))
+
+        if not new_lv then
+            terminate <- true
+
+    liveVariablesArr
+
 //{y:= 1; x:=2;  while (x<=100) { if (y <10) { y := y +1; } else {x := x +10;}}}
 //printfn "%A" (reachingDefinitions (set [(0, "y", 1); (1, "x", 2); (2, "", 3); (3, "", 4); (4, "y", 2); (3, "", 5); (5, "x", 2); (2, "", 6)]))
 
@@ -174,9 +252,10 @@ let rec compute n =
         printfn "HELOOO"
         printfn "AST:\n%A" ast
 
-        let pg = (edges 0 5 (Program ast))
+        let pg = (edges 0 6 (Program ast))
         printfn "PG:\n%A" pg
         printfn "RD:\n%A" (reachingDefinitions pg)
+        printfn "LV:\n%A" (liveVariables pg)
         //let pg = (edges 0 -1 ast) 
         //printfn "PG:\n%A" pg
         //printGraphviz pg
