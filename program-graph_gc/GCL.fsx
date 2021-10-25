@@ -77,6 +77,8 @@ let printGraphviz s = printfn "\nGraphviz:"
     //| ElseIfExpr(GC1,GC2) -> (AndExpr (isDone GC1, isDone GC2))
     | _ -> failwith "no matchcase for input isDone"
 *)
+
+(*
 let rec edges qI qF e = 
     match e with
     | Ass(x,a)              -> set [qI, Ass(x,a) , qF]
@@ -111,9 +113,10 @@ let rec edges qI qF e =
 // test: 
 // edges 0 1 (IfElseStat((GrThan(Variable "x", Num 0)), (Ass(Variable "x", Num 2)),(Ass(Variable "y", Num 2)))) 
 // edges "▷" "◀" (Stats((Ass(Variable "x", Num 2.0)),(Ass(Variable "y", Num 2.0))))
- 
+ *)
 
 // not done !!!
+(*
 let rec fv a =
     match a with
     | Variable(x)            -> Set [x]
@@ -212,6 +215,7 @@ let reachingDefinitions edges =
 
 //y:= 1; x:=2;  while (x<=100) { if (y <10) { y := y +1; } else {x := x +10;}}
 //printfn "%A" (reachingDefinitions (set [(0, "y", 1); (1, "x", 2); (2, "", 3); (3, "", 4); (4, "y", 2); (3, "", 5); (5, "x", 2); (2, "", 6)]))
+*)
 
 //function that takes input from user and prints corresponding graphviz file if the given string has valid GCL syntax
 // and gets an error otherwise
@@ -219,14 +223,14 @@ let rec compute n =
     if n = 0 then
         printfn "Bye bye"
     else
-        printfn "Enter a GCL code: "
+        printfn "Enter a MicroC code: "
         // parse the input string (program)
         let ast = parse (Console.ReadLine())
         printfn "AST:\n%A" ast
 
-        let pg = (edges 0 6 ast) 
+        (*let pg = (edges 0 6 ast) 
         printfn "PG:\n%A" pg
-        printfn "RD:\n%A" (reachingDefinitions pg)
+        printfn "RD:\n%A" (reachingDefinitions pg) *)
         //printGraphviz pg
 
         fresh <- 0

@@ -39,19 +39,23 @@ rule tokenize = parse
 | "false"		{ FALSE }
 | '&'			{ AND }
 | '|'			{ OR }
-| '!'			{ NEG }
-| '='			{ EQ }
+| "not"			{ NEG }
+| "=="			{ EQ }
 | "!="			{ NEQ }
 | '>'			{ GT }
 | ">="			{ GET }
 | '<'			{ LT }
 | "<="			{ LET }
-
 | "else"		{ ELSE }
 | ":="			{ ASS }
-| "skip"		{ SKIP }
 | ";"			{ SEMI }
+| ","           { COMMA }
+| "."           { DOT }
 | "if"			{ IF }
 | "while"		{ WHILE }
-| eof           { EOF }
+| "read"		{ READ }
+| "write"		{ WRITE }
+| "int"		    { INT }
+| "fst"		    { FIRST }
+| "snd"		    { SECOND }
 | variable		{ VAR(LexBuffer<_>.LexemeString lexbuf) }

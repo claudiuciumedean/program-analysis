@@ -1,38 +1,53 @@
 
 module ParserTypes
 
-//data type "expression" representing "a" in the given the GCL language
-type expr =
+type decl = 
+  | VariableDeclaration of string
+  | ArrayDeclaration of (int * string)
+  | RecordDeclaration of string 
+  | Epsilon
+  | Declarations of (decl * decl)
+
+and expra = 
   | Num of int
-  | TimesExpr of (expr * expr)
-  | DivExpr of (expr * expr)
-  | ModExpr of (expr * expr)
-  | PlusExpr of (expr * expr)
-  | MinusExpr of (expr * expr)
-  | UPlusExpr of (expr)
-  | UMinusExpr of (expr)
-  | Variable of string
-// data type "boolean" representing "b" in the given the GCL language
-//and boolean =  
+  | VariableA of string
+  | ArrayExpressionA of (string * expra)
+  | FirstRecordA of string
+  | SecondRecordA of string
+  | PlusExpr of (expra * expra)
+  | MinusExpr of (expra * expra)
+  | TimesExpr of (expra * expra)  
+  | DivExpr of (expra * expra)
+  | ModExpr of (expra * expra)
+
+and exprl = 
+  | VariableL of string
+  | ArrayExpressionL of (string * expra)
+  | FirstRecordL of string
+  | SecondRecordL of string
+
+and exprb =
   | True
   | False
-  | Bol of expr
-  | AndExpr of (expr * expr)
-  | OrExpr of (expr * expr)
-  | NegExpr of expr
-  | Equals of (expr * expr)
-  | NotEquals of (expr * expr)
-  | GrThan of (expr * expr)
-  | GrEqThan of (expr * expr)
-  | LeThan of (expr * expr)
-  | LeEqThan of (expr * expr)
-  | BolPar of expr
-// data type "C" representing its namesake in the given the GCL language
-//and statement =
-  | Ass of (expr * expr)
-  | ArrayAss of (expr * expr * expr)
-  | Skip // Should be removed
-  | Stats of (expr * expr)
-  | IfElseStat of (expr * expr * expr)
-  | IfStat of (expr * expr)
-  | WhileStat of (expr * expr) 
+  | LeThan of (expra * expra)
+  | GrThan of (expra * expra)
+  | LeEqThan of (expra * expra)
+  | GrEqThan of (expra * expra)
+  | Equals of (expra * expra)
+  | NotEquals of (expra * expra)
+  | AndExpr of (exprb * exprb)
+  | OrExpr of (exprb * exprb)
+  | NegExpr of exprb
+
+and stat =
+  | Ass of (exprl * expra)
+  | RecordAss of (string * expra * expra)
+  | Stats of (stat * stat)
+  | IfStat of (exprb * stat)
+  | IfElseStat of (exprb * stat * stat)
+  | WhileStat of (exprb * stat) 
+  | Read of exprl
+  | Write of expra
+
+and program = 
+  | Program of (decl * stat)
