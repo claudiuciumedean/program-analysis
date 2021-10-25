@@ -6,6 +6,7 @@ open ParserTypes
 %token <int> NUM
 %token BOL
 %token <string> VAR
+%token INT
 %token TIMES DIV MOD PLUS MINUS LPAR RPAR LCB RCB LSB RSB AND 
 %token OR NEG EQ NEQ GT GET LT LET TRUE FALSE
 %token ELSE ASS SEMI IF WHILE INT FIRST SECOND READ WRITE DOT COMMA
@@ -14,7 +15,8 @@ open ParserTypes
 %left EQ NEQ GT GET LT LET ELSE
 %left PLUS MINUS OR
 %left TIMES DIV AND MOD
-%right SEMI
+%left SEMI
+%left INT
 %left NEG
 
 // declaring the initial non-terminal symbol

@@ -26,43 +26,7 @@ let parse input =
     // return the result of parsing
     res
 
-//Functions for making appropriate strings of arithmetic, boolean and statement expressions
 (*
-let rec expr ex =
-    match ex with
-    | Num(fl) -> Num fl
-    | TimesExpr(ex1,ex2) -> TimesExpr(ex1,ex2)
-    | DivExpr(ex1,ex2) -> DivExpr(ex1,ex2)
-    | ModExpr(ex1,ex2) -> ModExpr(ex1,ex2)
-    | PlusExpr(ex1,ex2) -> PlusExpr(ex1,ex2)
-    | MinusExpr(ex1,ex2) -> MinusExpr(ex1,ex2)
-    | UPlusExpr(ex1) -> UPlusExpr(ex1)
-    | UMinusExpr(ex1) -> UMinusExpr(ex1)
-    | Variable(st) -> Variable(st)
-and stat s =
-    match s with
-    | Ass(x,a) -> (x,a)
-    | ArrayAss(x,a1,a2) -> runExpr(x)+"["+runExpr(a1)+"]" + ":=" + runExpr(a2)
-and runBool bl =
-    match bl with
-    | True -> "true"
-    | False -> "false"
-    | Bol bl1 -> string bl1
-    | AndExpr(bl1,bl2) -> runBool bl1 + "&" + runBool bl2
-    | OrExpr(bl1,bl2) -> runBool bl1 + "|" + runBool bl2
-    | NegExpr bl1 -> "!(" + runBool bl1 + ")"
-    | Equals(ex1,ex2) -> runExpr ex1 + "=" + runExpr ex2
-    | NotEquals(ex1,ex2) -> runExpr ex1 + "!=" + runExpr ex2
-    | GrThan(ex1,ex2) -> runExpr ex1 + ">" + runExpr ex2
-    | GrEqThan(ex1,ex2) -> runExpr ex1 + ">=" + runExpr ex2
-    | LeThan(ex1,ex2) -> runExpr ex1 + "<" +  runExpr ex2
-    | LeEqThan(ex1,ex2) -> runExpr ex1 + "<=" + runExpr ex2
-    | BolPar(bl1) -> "(" + runBool bl1 + ")"
-and runStat s = 
-    match s with 
-
-//runExpr (Variable "x") // test
-
 // prints the grafical string representation of a (set) pg
 let rec printSet s = Set.iter (fun (qI,st,qF) -> printfn "q%d -> q%d [label = \"%s\"];" qI qF st) s
 let printGraphviz s = printfn "\nGraphviz:"
@@ -81,40 +45,64 @@ let printGraphviz s = printfn "\nGraphviz:"
 (*
 let rec edges qI qF e = 
     match e with
-    | Ass(x,a)              -> set [qI, Ass(x,a) , qF]
-    | ArrayAss(x,a1,a2)     -> set [qI, (ArrayAss(x,a1,a2)), qF] // not sure how to include array assign otherwise?
-
-    | Stats(S1,S2)          -> fresh <- fresh + 1
+    // we start building edges using a type of Program
+    | Program(d,s)          -> fresh <- fresh + 1
                                let q = fresh
-                               let E1 = edges qI q S1
-                               let E2 = edges q qF S2 
-                               Set.union E1 E2
+                               let e1 = edgesD qI q d
+                               let e2 = edgesS q qF s
+                               Set.union e1 e2
+and edgesS qI qF e =
+    match e with 
+    | Assign(l,a)              -> set [qI, e, qF]
+    | RecordAssign(x,a1,a2)    -> set [qI, e, qF] 
+
+    | Stats(s1,s2)          -> fresh <- fresh + 1
+                               let q = fresh
+                               let e1 = edgesS qI q s1
+                               let e2 = edgesS q qF s2 
+                               Set.union e1 e2
+    
+    | IfStat(b,s0)          -> fresh <- fresh + 1
+                               let q = fresh
+                               let e = edgesS q qF s0
+                               Set.union (set [qI, b, q]) e
+    
     | IfElseStat(b, s1, s2) -> fresh <- fresh + 1
                                let q1 = fresh             
-                               let e1 = edges q1 qF s1
-                               let E1 = Set.union (set [qI, b, q1]) e1
+                               let e = edgesS q1 qF s1
+                               let E1 = Set.union (set [qI, b, q1]) e
 
                                fresh <- fresh + 1
                                let q2 = fresh
-                               let e2 = edges q2 qF s2
-                               let E2 = Set.union (set [qI, (NegExpr b), q2]) e2    
+                               let e = edgesS q2 qF s2
+                               let E2 = Set.union (set [qI, (NegExpr b), q2]) e    
 
                                Set.union E1 E2  
 
-    | IfStat(b,s)           -> fresh <- fresh + 1
+    | WhileStat(b,s0)       -> fresh <- fresh + 1
                                let q = fresh
-                               let E = edges q qF s
-                               Set.union (set [qI, b, q]) E
+                               let e = edgesS q qI s0 
+                               Set.union e (set [(qI, b, q); (qI, (NegExpr b), qF)])
+    | Read(l)               -> set [qI, e, qF]
+    | Write(x)              -> set [qI, e, qF]
 
-    | WhileStat(b,s)        -> let E = edges qI qI (IfStat(b,s))
-                               Set.union E (set [qI, (NegExpr b), qF]) 
-    | _ -> failwith "no matchcase for edges input"
+and edgesD qI qF e =
+    match e with 
+    | VarInt(l)       -> set [qI, e, qF]
+    | ArrayInt(a,l)   -> set [qI, e, qF]
+    | Decl(d1,d2)     -> fresh <- fresh + 1
+                         let q = fresh
+                         let e1 = edgesD qI q d1
+                         let e2 = edgesD q qF d2 
+                         Set.union e1 e2
+*)
 
 // test: 
-// edges 0 1 (IfElseStat((GrThan(Variable "x", Num 0)), (Ass(Variable "x", Num 2)),(Ass(Variable "y", Num 2)))) 
+ //edges 0 1 (IfElseStat((GrThan(Var "x", Num 0)), (Assign(Var "x", Num 2)),(Assign(Var "y", Num 2)))) 
 // edges "▷" "◀" (Stats((Ass(Variable "x", Num 2.0)),(Ass(Variable "y", Num 2.0))))
- *)
 
+ 
+(*
 // not done !!!
 (*
 let rec fv a =
@@ -167,7 +155,7 @@ genLV (Ass (Variable "r", MinusExpr (Variable "r", Variable "y")))
 
 killLV e3
 genLV e3
-
+*)
 
 // TODO - Create this function to get variable in assignments
 let def alpha = 
@@ -226,14 +214,17 @@ let rec compute n =
         printfn "Enter a MicroC code: "
         // parse the input string (program)
         let ast = parse (Console.ReadLine())
+        printfn "HELOOO"
         printfn "AST:\n%A" ast
 
         (*let pg = (edges 0 6 ast) 
         printfn "PG:\n%A" pg
         printfn "RD:\n%A" (reachingDefinitions pg) *)
+        //let pg = (edges 0 -1 ast) 
+        //printfn "PG:\n%A" pg
         //printGraphviz pg
 
-        fresh <- 0
+        //fresh <- 0
         compute n 
 compute 3
 
