@@ -51,4 +51,4 @@ and stat =
   | Write of expra
 
 and program = 
-  | Program of (decl * stat)
+  | Prog of (decl * stat)

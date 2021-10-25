@@ -6,7 +6,6 @@ open ParserTypes
 %token <int> NUM
 %token BOL
 %token <string> VAR
-%token INT
 %token TIMES DIV MOD PLUS MINUS LPAR RPAR LCB RCB LSB RSB AND 
 %token OR NEG EQ NEQ GT GET LT LET TRUE FALSE
 %token ELSE ASS SEMI IF WHILE INT FIRST SECOND READ WRITE DOT COMMA
@@ -15,8 +14,7 @@ open ParserTypes
 %left EQ NEQ GT GET LT LET ELSE
 %left PLUS MINUS OR
 %left TIMES DIV AND MOD
-%left SEMI
-%left INT
+%right SEMI
 %left NEG
 
 // declaring the initial non-terminal symbol
@@ -45,8 +43,7 @@ decl:
   | INT LSB NUM RSB VAR SEMI                      { ArrayDeclaration($3, $5) }
   | LCB INT FIRST SEMI INT SECOND RCB VAR SEMI    { RecordDeclaration($8) }
   | decl decl                                     { Declarations($1, $2) }
-  |                                               { Epsilon } 
-                                    
+  |                                               { Epsilon }                            
 
 //The grammar for the expression (a) 
 expra:
@@ -95,5 +92,5 @@ stat:
   | WRITE expra SEMI                                        { Write($2) }
 
 program:
-  | LCB decl stat RCB   { Program($2, $3) }
+  | LCB decl stat RCB   { Prog($2, $3) }
 %%

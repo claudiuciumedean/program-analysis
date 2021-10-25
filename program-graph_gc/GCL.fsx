@@ -42,20 +42,46 @@ let printGraphviz s = printfn "\nGraphviz:"
     | _ -> failwith "no matchcase for input isDone"
 *)
 
-(*
-let rec edges qI qF e = 
-    match e with
-    // we start building edges using a type of Program
-    | Program(d,s)          -> fresh <- fresh + 1
-                               let q = fresh
-                               let e1 = edgesD qI q d
-                               let e2 = edgesS q qF s
-                               Set.union e1 e2
-and edgesS qI qF e =
-    match e with 
-    | Assign(l,a)              -> set [qI, e, qF]
-    | RecordAssign(x,a1,a2)    -> set [qI, e, qF] 
+type Action = 
+    | Program of program
+    | Declaration of decl
+    | ExprA of expra
+    | ExprL of exprl
+    | ExprB of exprb
+    | Statement of stat
 
+let rec edges qI qF action = 
+    match action with
+    | Program(p) -> edgesP qI qF p
+    | Declaration(d) -> edgesD qI qF d
+    | Statement(s) -> edgesS qI qF s
+    | _ -> Set.empty
+
+and edgesP qI qF p = 
+    match p with 
+    | Prog(d,s) -> fresh <- fresh + 1
+                   let q = fresh
+                   let e1 = edgesD qI q d
+                   let e2 = edgesS q qF s
+                   Set.union e1 e2
+
+and edgesD qI qF d =
+    match d with 
+    | VariableDeclaration(l)  -> set [qI, Declaration(d), qF]
+    | ArrayDeclaration(a,l)   -> set [qI, Declaration(d), qF]
+    | RecordDeclaration(r)    -> set [qI, Declaration(d), qF]
+    | Declarations(d1,d2)     -> fresh <- fresh + 1
+                                 let q = fresh
+                                 let e1 = edgesD qI q d1
+                                 let e2 = edgesD q qF d2 
+                                 Set.union e1 e2
+    | Epsilon -> Set.empty
+
+and edgesS qI qF s =
+    match s with
+    | AssX(l, a)            -> set [qI, Statement(s), qF]
+    | Ass(l,a)              -> set [qI, Statement(s), qF]
+    | RecordAss(x,a1,a2)    -> set [qI, Statement(s), qF] 
     | Stats(s1,s2)          -> fresh <- fresh + 1
                                let q = fresh
                                let e1 = edgesS qI q s1
@@ -65,37 +91,25 @@ and edgesS qI qF e =
     | IfStat(b,s0)          -> fresh <- fresh + 1
                                let q = fresh
                                let e = edgesS q qF s0
-                               Set.union (set [qI, b, q]) e
+                               Set.union (set [qI, ExprB(b), q]) e
     
     | IfElseStat(b, s1, s2) -> fresh <- fresh + 1
                                let q1 = fresh             
                                let e = edgesS q1 qF s1
-                               let E1 = Set.union (set [qI, b, q1]) e
+                               let E1 = Set.union (set [qI, ExprB(b), q1]) e
 
                                fresh <- fresh + 1
                                let q2 = fresh
                                let e = edgesS q2 qF s2
-                               let E2 = Set.union (set [qI, (NegExpr b), q2]) e    
-
+                               let E2 = Set.union (set [qI, ExprB(NegExpr b), q2]) e  
                                Set.union E1 E2  
 
     | WhileStat(b,s0)       -> fresh <- fresh + 1
                                let q = fresh
                                let e = edgesS q qI s0 
-                               Set.union e (set [(qI, b, q); (qI, (NegExpr b), qF)])
-    | Read(l)               -> set [qI, e, qF]
-    | Write(x)              -> set [qI, e, qF]
-
-and edgesD qI qF e =
-    match e with 
-    | VarInt(l)       -> set [qI, e, qF]
-    | ArrayInt(a,l)   -> set [qI, e, qF]
-    | Decl(d1,d2)     -> fresh <- fresh + 1
-                         let q = fresh
-                         let e1 = edgesD qI q d1
-                         let e2 = edgesD q qF d2 
-                         Set.union e1 e2
-*)
+                               Set.union e (set [(qI, ExprB(b), q); (qI, ExprB(NegExpr b), qF)])
+    | Read(l)               -> set [qI, Statement (s), qF]
+    | Write(x)              -> set [qI, Statement (s), qF]
 
 // test: 
  //edges 0 1 (IfElseStat((GrThan(Var "x", Num 0)), (Assign(Var "x", Num 2)),(Assign(Var "y", Num 2)))) 
@@ -217,9 +231,9 @@ let rec compute n =
         printfn "HELOOO"
         printfn "AST:\n%A" ast
 
-        (*let pg = (edges 0 6 ast) 
+        let pg = (edges 0 6 (Program ast))
         printfn "PG:\n%A" pg
-        printfn "RD:\n%A" (reachingDefinitions pg) *)
+        //printfn "RD:\n%A" (reachingDefinitions pg)
         //let pg = (edges 0 -1 ast) 
         //printfn "PG:\n%A" pg
         //printGraphviz pg
