@@ -238,3 +238,5 @@ let rec compute n =
 compute 3
 
 //getNodes (set [(0, "y := 1", 2); (2, "!(x>0)", 1); (2, "x>0", 3); (3, "y := y*x", 4); (4, "x := x-1", 2)])
+
+// {int x; int[3] A; {int fst; int snd} R; while (not x == 3) {x := 3 + 5;}}

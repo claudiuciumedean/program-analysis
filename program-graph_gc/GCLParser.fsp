@@ -82,6 +82,7 @@ exprb:
 
 //The grammar for the statement (S)
 stat:
+  | VAR ASS expra SEMI                                      { AssX($1, $3) }
   | exprl ASS expra SEMI                                    { Ass($1, $3) }
   | VAR ASS LPAR expra COMMA expra RPAR SEMI                { RecordAss($1, $4, $6) }
   | stat stat                                               { Stats($1, $2) }

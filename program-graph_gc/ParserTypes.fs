@@ -40,6 +40,7 @@ and exprb =
   | NegExpr of exprb
 
 and stat =
+  | AssX of (string * expra)
   | Ass of (exprl * expra)
   | RecordAss of (string * expra * expra)
   | Stats of (stat * stat)
