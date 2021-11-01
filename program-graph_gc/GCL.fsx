@@ -125,7 +125,7 @@ let getNodes edgesSet =
         nodes <- nodes.Add(q1).Add(q2)
     Set.toList nodes
 
-let getVariables edges = 
+let getVariablesRD edges = 
     let mutable variables = Set.empty
     for (_, x , _) in edges do
         variables <- variables.Add(def x)
@@ -133,13 +133,11 @@ let getVariables edges =
 
 let reachingDefinitions edges = 
     let nodes = getNodes edges
-    let variables = getVariables edges
+    let variables = getVariablesRD edges
     let rd = Array.create (nodes.Length) (Set.empty)
     for variable in variables do 
         if (variable <> "") then 
             rd.[0] <- rd.[0].Add(variable, -1, 0)
-    printfn "V:\n%A" variables
-    printfn "V:\n%A" rd
     let mutable over = false
     while not over do 
         let mutable newRd = false
@@ -161,7 +159,7 @@ let reachingDefinitions edges =
 
 let rec fv a =
     match a with
-    | ExprA(a) -> match a with
+    | ExprA(a)  -> match a with
                     | VariableA(x) -> Set [x]
                     | ArrayExpressionA(A, a) -> Set.union (Set [A]) (fv(ExprA(a)))
                     | FirstRecordA(R) -> Set [R]
@@ -172,7 +170,7 @@ let rec fv a =
                     | DivExpr(a1, a2) -> Set.union (fv(ExprA(a1))) (fv(ExprA(a2)))
                     | ModExpr(a1, a2) -> Set.union (fv(ExprA(a1))) (fv(ExprA(a2)))
                     | _ -> Set.empty
-    | ExprB(b) -> match b with 
+    | ExprB(b)  -> match b with 
                     | LeThan(a1, a2) -> Set.union (fv(ExprA(a1))) (fv(ExprA(a2)))
                     | GrThan(a1, a2) -> Set.union (fv(ExprA(a1))) (fv(ExprA(a2)))
                     | LeEqThan(a1, a2) -> Set.union (fv(ExprA(a1))) (fv(ExprA(a2)))
@@ -183,6 +181,7 @@ let rec fv a =
                     | OrExpr(b1, b2) -> Set.union (fv(ExprB(b1))) (fv(ExprB(b2)))
                     | NegExpr(b) -> fv(ExprB(b))
                     | _ -> Set.empty
+    | _         ->  Set.empty
 
 let kill_lv alpha = 
     match alpha with 
@@ -237,6 +236,103 @@ let liveVariables edges =
 
     liveVariablesArr
 
+let rec defDV alpha = 
+    match alpha with 
+    | Declaration(d)    -> match d with 
+                            | VariableDeclaration(x)    -> Set[x]
+                            | ArrayDeclaration(_,A)     -> Set[A]
+                            | RecordDeclaration(R)      -> Set[R]
+                            | _                         -> Set.empty
+    | Statement(s)      -> match s with 
+                            | AssX(x, a)    ->  Set.union (Set[x]) (defDV (ExprA(a)))
+                            | Ass(l, a)     -> match l with 
+                                                | VariableL(x) -> Set.union (Set[x]) (defDV (ExprA(a)))
+                                                | ArrayExpressionL(A,a1) -> Set.union (Set[A]) (Set.union (defDV (ExprA(a))) (defDV (ExprA(a1))))
+                                                | FirstRecordL(R) -> Set.union (Set[R]) (defDV (ExprA(a)))
+                                                | SecondRecordL(R) -> Set.union (Set[R]) (defDV (ExprA(a)))
+                            | RecordAss(R, a1, a2) -> Set.union (Set[R]) (Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2))))
+                            | Read(l)            -> match l with 
+                                                    | VariableL(x) -> Set[x]
+                                                    | ArrayExpressionL(A,a1) -> Set.union (Set[A]) (defDV (ExprA(a1)))
+                                                    | FirstRecordL(R) -> Set[R]
+                                                    | SecondRecordL(R) -> Set[R]
+                            | Write(a)          ->  defDV (ExprA(a))
+                            | _ -> Set.empty
+    | ExprA(a)              -> match a with 
+                                | VariableA(x) -> Set[x]
+                                | ArrayExpressionA(A,a1) -> Set.union (Set[A]) (defDV (ExprA(a1)))
+                                | FirstRecordA(R) -> Set[R]
+                                | SecondRecordA(R) -> Set[R]
+                                | PlusExpr(a1, a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
+                                | MinusExpr(a1, a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
+                                | TimesExpr(a1, a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2))) 
+                                | DivExpr(a1, a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
+                                | ModExpr(a1, a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
+                                | _ -> Set.empty
+    | ExprB(b)              -> match b with 
+                                | LeThan(a1,a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
+                                | GrThan(a1,a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
+                                | LeEqThan(a1,a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
+                                | GrEqThan(a1,a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
+                                | Equals(a1,a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
+                                | NotEquals(a1,a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
+                                | AndExpr(b1,b2) -> Set.union (defDV (ExprB(b1))) (defDV (ExprB(b2)))
+                                | OrExpr(b1,b2) -> Set.union (defDV (ExprB(b1))) (defDV (ExprB(b2)))
+                                | NegExpr(b1) -> defDV (ExprB(b1))
+                                | _ -> Set.empty
+    | _ -> Set.empty
+
+let getVariables edges = 
+    let mutable variables = Set.empty
+    for (_, alpha, _) in edges do
+        variables <- Set.union (variables) (defDV alpha)
+    variables
+ 
+let SVD alpha DV = match alpha with
+                    | Declaration(a) -> match a with
+                                        | VariableDeclaration(x) -> Set.difference DV (Set[x])
+                                        | ArrayDeclaration(_, A) -> Set.difference DV (Set[A])
+                                        | RecordDeclaration(R)   -> Set.difference DV (Set[R])
+                                        | _ -> DV
+                    | Statement(s)  -> match s with
+                                       | AssX(x,a) -> if Set.isEmpty (Set.intersect (fv (ExprA(a))) (DV)) then (Set.difference DV (Set[x])) else (Set.union DV (Set[x]))
+                                       | Ass(l,a) -> match l with 
+                                                      | VariableL(x) -> if Set.isEmpty (Set.intersect (fv (ExprA(a))) (DV)) then (Set.difference DV (Set[x])) else (Set.union DV (Set[x]))
+                                                      | ArrayExpressionL(A,a1) -> if Set.isEmpty (Set.intersect (Set.union (fv (ExprA(a))) (fv (ExprA(a1)))) (DV)) then DV else (Set.union DV (Set[A]))
+                                                      | FirstRecordL(R) ->  if Set.isEmpty (Set.intersect (fv (ExprA(a))) (DV)) then DV else (Set.union DV (Set[R]))
+                                                      | SecondRecordL(R) -> if Set.isEmpty (Set.intersect (fv (ExprA(a))) (DV)) then DV else (Set.union DV (Set[R]))
+                                       | RecordAss(R, a1, a2) -> if Set.isEmpty (Set.intersect (Set.union (fv (ExprA(a1))) (fv (ExprA(a2)))) (DV)) then (Set.difference DV (Set[R])) else (Set.union DV (Set[R]))
+                                       | Read(l) -> match l with 
+                                                     | VariableL(x) -> Set.union DV (Set[x])
+                                                     | ArrayExpressionL(A,_) -> Set.union DV (Set[A])
+                                                     | FirstRecordL(R) -> Set.union DV (Set[R])
+                                                     | SecondRecordL(R) -> Set.union DV (Set[R])
+                                       | _ -> DV
+                    | _ -> DV
+
+
+
+
+let dangerousVariables edges = 
+    let nodes = getNodes edges
+    let variables = getVariables edges
+    let dv = Array.create (nodes.Length) (Set.empty)
+    for variable in variables do 
+        if (variable <> "") then 
+            dv.[0] <- dv.[0].Add(variable)
+    let mutable over = false
+    while not over do 
+        let mutable newDV = false
+        for (q1, alpha, q2) in (Set.toList edges) do
+            if not (Set.isSubset (SVD alpha (dv.[q1])) (dv.[q2])) then
+                newDV <- true
+                dv.[q2] <- (Set.union dv.[q2] (SVD alpha (dv.[q1])))
+        if not newDV then 
+            over <- true
+    dv
+
+
+
 //{y:= 1; x:=2;  while (x<=100) { if (y <10) { y := y +1; } else {x := x +10;}}}
 //printfn "%A" (reachingDefinitions (set [(0, "y", 1); (1, "x", 2); (2, "", 3); (3, "", 4); (4, "y", 2); (3, "", 5); (5, "x", 2); (2, "", 6)]))
 
@@ -256,6 +352,7 @@ let rec compute n =
         printfn "PG:\n%A" pg
         printfn "RD:\n%A" (reachingDefinitions pg)
         printfn "LV:\n%A" (liveVariables pg)
+        printfn "DV:\n%A" (dangerousVariables pg)
         //let pg = (edges 0 -1 ast) 
         //printfn "PG:\n%A" pg
         //printGraphviz pg
