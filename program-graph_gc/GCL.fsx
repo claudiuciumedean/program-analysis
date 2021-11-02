@@ -3,7 +3,7 @@
 // Windows (Stina)
 //#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 // Julien 
-#r "/Users/Julien/F#/FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
+#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 
 // import of modules, including lexer and parser
 open FSharp.Text.Lexing
@@ -311,8 +311,6 @@ let SVD alpha DV = match alpha with
                     | _ -> DV
 
 
-
-
 let dangerousVariables edges = 
     let nodes = getNodes edges
     let variables = getVariables edges
@@ -331,7 +329,58 @@ let dangerousVariables edges =
             over <- true
     dv
 
+let FVD alpha FV = match alpha with
+                    | Declaration(a) -> match a with
+                                        | VariableDeclaration(x) -> Set.difference FV (Set[x])
+                                        | ArrayDeclaration(_, A) -> Set.difference FV (Set[A])
+                                        | RecordDeclaration(R)   -> Set.difference FV (Set[R])
+                                        | _ -> FV
+                    | Statement(s)  -> match s with
+                                       | AssX(x,a) -> if Set.contains x (FV) then Set.union (Set.difference FV (Set[x])) (fv (ExprA(a))) else FV
+                                       | Ass(l,a) -> match l with 
+                                                      | VariableL(x) -> if Set.contains x (FV) then Set.union (Set.difference FV (Set[x])) (fv (ExprA(a))) else FV
+                                                      | ArrayExpressionL(A,a1) -> if Set.contains A (FV) then Set.union (Set.union (fv (ExprA(a))) (fv (ExprA(a1)))) (FV) else FV
+                                                      | FirstRecordL(R) ->  if Set.contains R (FV) then Set.union (fv (ExprA(a))) (FV) else FV
+                                                      | SecondRecordL(R) -> if Set.contains R (FV) then Set.union (fv (ExprA(a))) (FV) else FV
+                                       | RecordAss(R, a1, a2) -> if Set.contains R (FV) then Set.union (Set.union (fv (ExprA(a1))) (fv (ExprA(a2)))) (FV) else FV
+                                       | Read(l) -> match l with 
+                                                     | VariableL(x) -> Set.difference FV (Set[x])
+                                                     | ArrayExpressionL(A,_) -> Set.difference FV (Set[A])
+                                                     | FirstRecordL(R) -> Set.difference FV (Set[R])
+                                                     | SecondRecordL(R) -> Set.difference FV (Set[R])
+                                       | Write(a) -> Set.union (fv (ExprA(a))) (FV)
+                                       | _ -> FV
+                    | ExprB(b) -> Set.union (fv (ExprB(b))) (FV)
+                    | _ -> FV
+  
+let faintVariables edges = 
+    let nodes = getNodes edges
+    let fv = Array.create (nodes.Length) (Set.empty)
+    let mutable over = false
+ 
+    while not over do 
+        let mutable newFV = false
+        
+        for (q1, alpha, q2) in (Set.toList edges) do
+            if not (Set.isSubset (FVD alpha (fv.[q2])) (fv.[q1])) then
+                newFV <- true
+                fv.[q1] <- (Set.union fv.[q1] (FVD alpha (fv.[q2])))
 
+        if not newFV then
+            over <- true
+
+    fv
+
+let format (arr: Array) =     
+    let mutable map = Map.empty
+    let mutable key = 0
+    let size = arr.Length - 1
+
+    for set in arr do
+        map <- map.Add(key, set)
+        key <- key + 1
+
+    map
 
 //{y:= 1; x:=2;  while (x<=100) { if (y <10) { y := y +1; } else {x := x +10;}}}
 //printfn "%A" (reachingDefinitions (set [(0, "y", 1); (1, "x", 2); (2, "", 3); (3, "", 4); (4, "y", 2); (3, "", 5); (5, "x", 2); (2, "", 6)]))
@@ -350,9 +399,10 @@ let rec compute n =
 
         let pg = (edges 0 6 (Program ast))
         printfn "PG:\n%A" pg
-        printfn "RD:\n%A" (reachingDefinitions pg)
-        printfn "LV:\n%A" (liveVariables pg)
-        printfn "DV:\n%A" (dangerousVariables pg)
+        printfn "RD:\n%A" (format (reachingDefinitions pg))
+        printfn "LV:\n%A" (format (liveVariables pg))
+        printfn "DV:\n%A" (format (dangerousVariables pg))
+        printfn "FV:\n%A" (format (faintVariables pg))
         //let pg = (edges 0 -1 ast) 
         //printfn "PG:\n%A" pg
         //printGraphviz pg
