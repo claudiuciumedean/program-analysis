@@ -1,9 +1,9 @@
 ﻿//path to run fsLexYacc
 //should be changed depending on which system the script is run
 // Windows (Stina)
-//#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
+#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 // Julien 
-#r "/Users/Julien/F#/FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
+//#r "/Users/Julien/F#/FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 
 // import of modules, including lexer and parser
 open FSharp.Text.Lexing
@@ -14,6 +14,9 @@ open ParserTypes
 open GCLParser
 #load "GCLLexer.fs"
 open GCLLexer
+
+#load "GCLSignOperators.fsx"
+open GCLSignOperators
 
 let mutable fresh = 0
 
@@ -240,6 +243,81 @@ let liveVariables edges =
 //{y:= 1; x:=2;  while (x<=100) { if (y <10) { y := y +1; } else {x := x +10;}}}
 //printfn "%A" (reachingDefinitions (set [(0, "y", 1); (1, "x", 2); (2, "", 3); (3, "", 4); (4, "y", 2); (3, "", 5); (5, "x", 2); (2, "", 6)]))
 
+let sign n = 
+    match n with 
+    |n when n < 0 -> '-'
+    |n when n = 0 -> '0'
+    |n when n > 0 -> '+' 
+    |_ -> failwith "fail in sign(n) function"
+sign -2 = '-'
+
+let op set1 set2 operator = if Set.isEmpty set1 || Set.isEmpty set2 
+                            then set [] 
+                            // iter through each of the sets and computes the set of signs (see tables in report)
+                            else Set.fold(fun acc s1 -> Set.fold (fun acc s2 -> if (operator s1 s2) <> set [] then (operator s1 s2)+acc else set [] ) acc set2 ) (Set.empty) set1 
+
+op (set ['+']) (set ['-';'+']) divideop
+
+let rec AHatDS a (sigmaV, sigmaA, sigmaR) = 
+    match a with 
+    | Num(n)                  -> set [sign(n)]
+    | VariableA(a)            -> Map.find a sigmaV // as defined in book
+    //| VariableA(x)          -> if Map.containsKey x sigmaV then Map.find x sigmaV else set []
+    | ArrayExpressionA(a1,a2) -> if (Set.intersect (AHatDS a2 (sigmaV, sigmaA, sigmaR)) (set ['0';'+'])) <> set [] then Map.find a1 sigmaA else set []
+    | FirstRecordA(a)         -> Map.find a sigmaR 
+    | SecondRecordA(a)        -> Map.find a sigmaR 
+    | PlusExpr(a1,a2)         -> op (AHatDS a1 (sigmaV, sigmaA, sigmaR)) (AHatDS a2 (sigmaV, sigmaA, sigmaR)) plusop
+    | MinusExpr(a1,a2)        -> op (AHatDS a1 (sigmaV, sigmaA, sigmaR)) (AHatDS a2 (sigmaV, sigmaA, sigmaR)) minusop
+    | TimesExpr(a1,a2)        -> op (AHatDS a1 (sigmaV, sigmaA, sigmaR)) (AHatDS a2 (sigmaV, sigmaA, sigmaR)) multiplyop
+    | DivExpr(a1,a2)          -> op (AHatDS a1 (sigmaV, sigmaA, sigmaR)) (AHatDS a2 (sigmaV, sigmaA, sigmaR)) divideop
+    | ModExpr(a1,a2)          -> op (AHatDS a1 (sigmaV, sigmaA, sigmaR)) (AHatDS a2 (sigmaV, sigmaA, sigmaR)) modop
+    | UMinusExpr(a)           -> op (AHatDS a (sigmaV, sigmaA, sigmaR)) (set ['-']) uminusop
+    | _                       -> failwith "*** UNDEFINED semantic function AHat ***"
+
+// test AHatDS
+let memDS = (Map [("x", set ['+'; '0']); ("y", set ['-'; '+']) ], Map [("A", set ['-';'+'])], Map [("R.fst", set ['-';'+'])])
+
+AHatDS (UMinusExpr(VariableA "x")) memDS
+
+let rec BHatDS b (sigmaV, sigmaA, sigmaR) = 
+    match b with 
+    | True                  -> set ['t'] 
+    | False                 -> set ['f'] 
+    | AndExpr(b1,b2)        -> op (BHatDS b1 (sigmaV, sigmaA, sigmaR)) (BHatDS b2 (sigmaV, sigmaA, sigmaR)) andop
+    | OrExpr(b1,b2)         -> op (BHatDS b1 (sigmaV, sigmaA, sigmaR)) (BHatDS b2 (sigmaV, sigmaA, sigmaR)) orop
+    | NegExpr(b)            -> op (BHatDS b (sigmaV, sigmaA, sigmaR)) (BHatDS b (sigmaV, sigmaA, sigmaR)) notop
+    | Equals(a1,a2)         -> op (AHatDS a1 (sigmaV, sigmaA, sigmaR)) (AHatDS a2 (sigmaV, sigmaA, sigmaR)) equalop
+    | NotEquals(a1,a2)      -> op (AHatDS a1 (sigmaV, sigmaA, sigmaR)) (AHatDS a2 (sigmaV, sigmaA, sigmaR)) notequalop
+    | GrThan(a1,a2)         -> op (AHatDS a1 (sigmaV, sigmaA, sigmaR)) (AHatDS a2 (sigmaV, sigmaA, sigmaR)) biggerop
+    | GrEqThan(a1,a2)       -> op (AHatDS a1 (sigmaV, sigmaA, sigmaR)) (AHatDS a2 (sigmaV, sigmaA, sigmaR)) biggerequalop
+    | LeThan(a1,a2)         -> op (AHatDS a1 (sigmaV, sigmaA, sigmaR)) (AHatDS a2 (sigmaV, sigmaA, sigmaR)) lessop
+    | LeEqThan(a1,a2)       -> op (AHatDS a1 (sigmaV, sigmaA, sigmaR)) (AHatDS a2 (sigmaV, sigmaA, sigmaR)) lessequalop
+    | _                     -> set ['f'] 
+
+BHatDS (LeThan(VariableA "x", VariableA "y")) memDS
+
+let rec SHatDS action (sigmaV, sigmaA, sigmaR) = 
+    match action with 
+    | Statement(s) -> match s with 
+                      | AssX(x,a)    -> if AHatDS a (sigmaV, sigmaA, sigmaR) <> set [] && not(sigmaV <> Map.empty || sigmaA <> Map.empty|| sigmaR <> Map.empty)
+                                        then (Map.add x (AHatDS a (sigmaV, sigmaA, sigmaR)) sigmaV, sigmaA, sigmaR) 
+                                        else (Map.empty, Map.empty, Map.empty) 
+                      | Ass(l, a)     -> match l with 
+                                         | ArrayExpressionL(a1,a2)      -> if (Set.intersect (AHatDS a2 (sigmaV, sigmaA, sigmaR)) (set ['0';'+'])) <> set [] && sigmathen Map.find a1 sigmaA else set []
+                                         | FirstRecordL(_)              -> 
+                                         | SecondRecordL(_)             -> 
+
+                      | RecordAss(R, _, _) -> 
+                      | Read(l)            -> 
+                      | _         -> 
+    
+    | Declaration(d) ->
+    | ExprA(a) -> 
+
+// test SHatDS
+
+SHatDS (Statement(AssX("x", Num 0))) memDS
+
 //function that takes input from user and prints corresponding graphviz file if the given string has valid GCL syntax
 // and gets an error otherwise
 let rec compute n =
@@ -252,7 +330,7 @@ let rec compute n =
         printfn "HELOOO"
         printfn "AST:\n%A" ast
 
-        let pg = (edges 0 6 (Program ast))
+        let pg = (edges 0 1 (Program ast))
         printfn "PG:\n%A" pg
         printfn "RD:\n%A" (reachingDefinitions pg)
         printfn "LV:\n%A" (liveVariables pg)
@@ -260,7 +338,7 @@ let rec compute n =
         //printfn "PG:\n%A" pg
         //printGraphviz pg
 
-        //fresh <- 0
+        fresh <- 0
         compute n 
 compute 3
 

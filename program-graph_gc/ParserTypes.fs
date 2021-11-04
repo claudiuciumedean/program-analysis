@@ -19,6 +19,7 @@ and expra =
   | TimesExpr of (expra * expra)  
   | DivExpr of (expra * expra)
   | ModExpr of (expra * expra)
+  | UMinusExpr of expra
 
 and exprl = 
   | VariableL of string
