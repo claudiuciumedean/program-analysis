@@ -275,7 +275,7 @@ let rec AHatDS a (sigmaV, sigmaA, sigmaR) =
     | _                       -> failwith "*** UNDEFINED semantic function AHat ***"
 
 // test AHatDS
-let memDS = (Map [("x", set ['+'; '0']); ("y", set ['-'; '+']) ], Map [("A", set ['-';'+'])], Map [("R.fst", set ['-';'+'])])
+let memDS = (Map [("x", set ['+'; '0']); ("y", set ['-'; '+']) ], Map [("A", set ['-';'+'])], Map [("R.fst", set ['-']);("R.snd", set ['-'])])
 
 AHatDS (UMinusExpr(VariableA "x")) memDS
 
@@ -297,26 +297,67 @@ let rec BHatDS b (sigmaV, sigmaA, sigmaR) =
 BHatDS (LeThan(VariableA "x", VariableA "y")) memDS
 
 let rec SHatDS action (sigmaV, sigmaA, sigmaR) = 
+    let isBotDS = (sigmaV.Equals(Map.empty) && sigmaA.Equals(Map.empty) && sigmaR.Equals(Map.empty))
+    let botDS = (Map.empty, Map.empty, Map.empty)
     match action with 
     | Statement(s) -> match s with 
-                      | AssX(x,a)    -> if AHatDS a (sigmaV, sigmaA, sigmaR) <> set [] && not(sigmaV <> Map.empty || sigmaA <> Map.empty|| sigmaR <> Map.empty)
+                      | AssX(x,a)    -> if AHatDS a (sigmaV, sigmaA, sigmaR) <> set [] 
+                                            && not(isBotDS)
                                         then (Map.add x (AHatDS a (sigmaV, sigmaA, sigmaR)) sigmaV, sigmaA, sigmaR) 
-                                        else (Map.empty, Map.empty, Map.empty) 
-                      | Ass(l, a)     -> match l with 
-                                         | ArrayExpressionL(a1,a2)      -> if (Set.intersect (AHatDS a2 (sigmaV, sigmaA, sigmaR)) (set ['0';'+'])) <> set [] && sigmathen Map.find a1 sigmaA else set []
-                                         | FirstRecordL(_)              -> 
-                                         | SecondRecordL(_)             -> 
+                                        else botDS
+                      | Ass(l, a2)     -> match l with 
+                                          | ArrayExpressionL(A,a1)      -> if (Set.intersect (AHatDS a1 (sigmaV, sigmaA, sigmaR)) (set ['0';'+'])) <> set [] 
+                                                                                && AHatDS a2 (sigmaV, sigmaA, sigmaR) <> set [] 
+                                                                                && not(isBotDS)
+                                                                           then (sigmaV, Map.add A (Set.union (Map.find A sigmaA) (AHatDS a2 (sigmaV, sigmaA, sigmaR))) sigmaA , sigmaR) 
+                                                                           else botDS
+                                          | FirstRecordL(fst) -> if AHatDS a2 (sigmaV, sigmaA, sigmaR) <> set [] 
+                                                                   && not(isBotDS)
+                                                                 then (sigmaV, sigmaA, Map.add fst (AHatDS a2 (sigmaV, sigmaA, sigmaR)) sigmaR)
+                                                                 else botDS
 
-                      | RecordAss(R, _, _) -> 
-                      | Read(l)            -> 
-                      | _         -> 
+                                          | SecondRecordL(snd) -> if AHatDS a2 (sigmaV, sigmaA, sigmaR) <> set [] 
+                                                                    && not(isBotDS)
+                                                                  then (sigmaV, sigmaA, Map.add snd (AHatDS a2 (sigmaV, sigmaA, sigmaR)) sigmaR)
+                                                                  else botDS
+
+                      | RecordAss(R, fst, snd) ->  if AHatDS fst (sigmaV, sigmaA, sigmaR) <> set [] 
+                                                      && AHatDS snd (sigmaV, sigmaA, sigmaR) <> set [] 
+                                                      && not(isBotDS)
+                                                   then let (sigmaV, sigmaA, sigmaR) = (sigmaV, sigmaA, Map.add (R+".fst") (AHatDS fst (sigmaV, sigmaA, sigmaR)) sigmaR) // maybe a bit hacky :)
+                                                        (sigmaV, sigmaA, Map.add (R+".snd") (AHatDS snd (sigmaV, sigmaA, sigmaR)) sigmaR)                                // maybe a bit hacky :)
+                                                   else botDS
+
+                      | Read(l)            -> match l with 
+                                              | VariableL(x)           -> if not(isBotDS)
+                                                                          then (Map.add x (set ['-';'0';'+']) sigmaV, sigmaA, sigmaR) 
+                                                                          else botDS
+                                              | ArrayExpressionL(A,a)  -> if (Set.intersect (AHatDS a (sigmaV, sigmaA, sigmaR)) (set ['0';'+'])) <> set [] 
+                                                                             && not(isBotDS)
+                                                                          then (sigmaV, Map.add A (set ['-';'0';'+']) sigmaA, sigmaR) 
+                                                                          else botDS
+                                              | FirstRecordL(fst)      -> if not(isBotDS)
+                                                                          then (sigmaV, sigmaA, Map.add fst (set ['-';'0';'+']) sigmaR) 
+                                                                          else botDS
+                                              | SecondRecordL(snd)     -> if not(isBotDS)
+                                                                          then (sigmaV, sigmaA, Map.add snd (set ['-';'0';'+']) sigmaR) 
+                                                                          else botDS
+                      | Write(a)         -> if AHatDS a (sigmaV, sigmaA, sigmaR) <> set [] 
+                                            then (sigmaV, sigmaA, sigmaR)
+                                            else botDS
     
-    | Declaration(d) ->
-    | ExprA(a) -> 
+    | Declaration(d) -> match d with 
+                        | VariableDeclaration(x)    -> if not(isBotDS)
+                                                       then (Map.add x (set ['0']) sigmaV, sigmaA, sigmaR) 
+                                                       else botDS
+                        | ArrayDeclaration(_,A)     -> if not(isBotDS)
+                                                       then (sigmaV, Map.add A (set ['0']) sigmaA, sigmaR) 
+                                                       else botDS
+                        | RecordDeclaration(R)      -> botDS // IMPLEMET! needs to be split into FST and SND
 
 // test SHatDS
 
-SHatDS (Statement(AssX("x", Num 0))) memDS
+SHatDS (Statement(RecordAss("R", Num 0, Num 1))) memDS
 
 //function that takes input from user and prints corresponding graphviz file if the given string has valid GCL syntax
 // and gets an error otherwise

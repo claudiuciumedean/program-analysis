@@ -4,7 +4,7 @@ module ParserTypes
 type decl = 
   | VariableDeclaration of string
   | ArrayDeclaration of (int * string)
-  | RecordDeclaration of string 
+  | RecordDeclaration of string // string * string? or FirstRecordA * SecondRecordA?
   | Epsilon
   | Declarations of (decl * decl)
 
