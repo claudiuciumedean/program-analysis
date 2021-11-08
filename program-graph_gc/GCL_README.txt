@@ -17,6 +17,6 @@ according to our specified rules and grammar. Otherwise the program will get an 
 #Commands
 1. brew install nuget
 2. nuget install FsLexYacc -Version 10.0.0
-3. mono FsLexYacc.10.0.0/build/fslex/net46/fslex.exe GCLParser.fsl --unicode
+3. mono FsLexYacc.10.0.0/build/fslex/net46/fslex.exe GCLLexer.fsl --unicode
 4. mono FsLexYacc.10.0.0/build/fsyacc/net46/fsyacc.exe GCLParser.fsp --module GCLParser
 5. fsharpi FILENAME.fsx
