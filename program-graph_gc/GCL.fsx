@@ -1,4 +1,5 @@
 ﻿//path to run fsLexYacc
+
 //should be changed depending on which system the script is run
 // Windows (Stina)
 #r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
@@ -122,6 +123,52 @@ let def alpha =
                             | _         -> ""
     | _                 -> ""
 
+let rec defDV alpha = 
+    match alpha with 
+    | Declaration(d)    -> match d with 
+                            | VariableDeclaration(x)    -> Set[x]
+                            | ArrayDeclaration(_,A)     -> Set[A]
+                            | RecordDeclaration(R)      -> Set[R]
+                            | _                         -> Set.empty
+    | Statement(s)      -> match s with 
+                            | AssX(x, a)    ->  Set.union (Set[x]) (defDV (ExprA(a)))
+                            | Ass(l, a)     -> match l with 
+                                                | VariableL(x) -> Set.union (Set[x]) (defDV (ExprA(a)))
+                                                | ArrayExpressionL(A,a1) -> Set.union (Set[A]) (Set.union (defDV (ExprA(a))) (defDV (ExprA(a1))))
+                                                | FirstRecordL(R) -> Set.union (Set[R]) (defDV (ExprA(a)))
+                                                | SecondRecordL(R) -> Set.union (Set[R]) (defDV (ExprA(a)))
+                            | RecordAss(R, a1, a2) -> Set.union (Set[R]) (Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2))))
+                            | Read(l)            -> match l with 
+                                                    | VariableL(x) -> Set[x]
+                                                    | ArrayExpressionL(A,a1) -> Set.union (Set[A]) (defDV (ExprA(a1)))
+                                                    | FirstRecordL(R) -> Set[R]
+                                                    | SecondRecordL(R) -> Set[R]
+                            | Write(a)          ->  defDV (ExprA(a))
+                            | _ -> Set.empty
+    | ExprA(a)              -> match a with 
+                                | VariableA(x) -> Set[x]
+                                | ArrayExpressionA(A,a1) -> Set.union (Set[A]) (defDV (ExprA(a1)))
+                                | FirstRecordA(R) -> Set[R]
+                                | SecondRecordA(R) -> Set[R]
+                                | PlusExpr(a1, a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
+                                | MinusExpr(a1, a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
+                                | TimesExpr(a1, a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2))) 
+                                | DivExpr(a1, a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
+                                | ModExpr(a1, a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
+                                | _ -> Set.empty
+    | ExprB(b)              -> match b with 
+                                | LeThan(a1,a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
+                                | GrThan(a1,a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
+                                | LeEqThan(a1,a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
+                                | GrEqThan(a1,a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
+                                | Equals(a1,a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
+                                | NotEquals(a1,a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
+                                | AndExpr(b1,b2) -> Set.union (defDV (ExprB(b1))) (defDV (ExprB(b2)))
+                                | OrExpr(b1,b2) -> Set.union (defDV (ExprB(b1))) (defDV (ExprB(b2)))
+                                | NegExpr(b1) -> defDV (ExprB(b1))
+                                | _ -> Set.empty
+    | _ -> Set.empty
+
 let getNodes edgesSet = 
     let mutable nodes = Set.empty
     for (q1, _, q2) in Set.toList edgesSet do
@@ -130,9 +177,9 @@ let getNodes edgesSet =
 
 let getVariables edges = 
     let mutable variables = Set.empty
-    for (_, x , _) in edges do
-        variables <- variables.Add(def x)
-    Set.toList variables
+    for (_, alpha, _) in edges do
+        variables <- Set.union (variables) (defDV alpha)
+    variables
 
 let reachingDefinitions edges = 
     let nodes = getNodes edges
@@ -296,6 +343,11 @@ let rec BHatDS b (sigmaV, sigmaA, sigmaR) =
 
 BHatDS (LeThan(VariableA "x", VariableA "y")) memDS
 
+// sigmahat = ((Map [("x", set ['+'; '0']), sigmaA, sigmaR)
+// Basic(sigmahat) = ((Map [("x", set [set['0']; set ['+']]), sigmaA, sigmaR)
+
+//let Basic sigmahat =   
+
 let rec SHatDS action (sigmaV, sigmaA, sigmaR) = 
     let isBotDS = (sigmaV.Equals(Map.empty) && sigmaA.Equals(Map.empty) && sigmaR.Equals(Map.empty))
     let botDS = (Map.empty, Map.empty, Map.empty)
@@ -306,6 +358,7 @@ let rec SHatDS action (sigmaV, sigmaA, sigmaR) =
                                         then (Map.add x (AHatDS a (sigmaV, sigmaA, sigmaR)) sigmaV, sigmaA, sigmaR) 
                                         else botDS
                       | Ass(l, a2)     -> match l with 
+                      
                                           | ArrayExpressionL(A,a1)      -> if (Set.intersect (AHatDS a1 (sigmaV, sigmaA, sigmaR)) (set ['0';'+'])) <> set [] 
                                                                                 && AHatDS a2 (sigmaV, sigmaA, sigmaR) <> set [] 
                                                                                 && not(isBotDS)
@@ -320,7 +373,7 @@ let rec SHatDS action (sigmaV, sigmaA, sigmaR) =
                                                                     && not(isBotDS)
                                                                   then (sigmaV, sigmaA, Map.add snd (AHatDS a2 (sigmaV, sigmaA, sigmaR)) sigmaR)
                                                                   else botDS
-
+                                          |_ -> botDS
                       | RecordAss(R, fst, snd) ->  if AHatDS fst (sigmaV, sigmaA, sigmaR) <> set [] 
                                                       && AHatDS snd (sigmaV, sigmaA, sigmaR) <> set [] 
                                                       && not(isBotDS)
@@ -342,10 +395,11 @@ let rec SHatDS action (sigmaV, sigmaA, sigmaR) =
                                               | SecondRecordL(snd)     -> if not(isBotDS)
                                                                           then (sigmaV, sigmaA, Map.add snd (set ['-';'0';'+']) sigmaR) 
                                                                           else botDS
+                                              |_ -> botDS
                       | Write(a)         -> if AHatDS a (sigmaV, sigmaA, sigmaR) <> set [] 
                                             then (sigmaV, sigmaA, sigmaR)
                                             else botDS
-    
+                      | _ -> botDS
     | Declaration(d) -> match d with 
                         | VariableDeclaration(x)    -> if not(isBotDS)
                                                        then (Map.add x (set ['0']) sigmaV, sigmaA, sigmaR) 
@@ -353,11 +407,63 @@ let rec SHatDS action (sigmaV, sigmaA, sigmaR) =
                         | ArrayDeclaration(_,A)     -> if not(isBotDS)
                                                        then (sigmaV, Map.add A (set ['0']) sigmaA, sigmaR) 
                                                        else botDS
-                        | RecordDeclaration(R)      -> botDS // IMPLEMET! needs to be split into FST and SND
+                        | RecordDeclaration(R)      -> if not(isBotDS) 
+                                                       then let (sigmaV, sigmaA, sigmaR) = (sigmaV, sigmaA, Map.add (R+".fst") (set ['0']) sigmaR)
+                                                            (sigmaV, sigmaA, Map.add (R+".snd") (set ['0']) sigmaR)
+                                                       else botDS 
+                        |_ ->botDS
+    |_ -> botDS
 
 // test SHatDS
 
-SHatDS (Statement(RecordAss("R", Num 0, Num 1))) memDS
+
+SHatDS (Declaration(RecordDeclaration("R"))) memDS
+
+let isSubMap (sV1, sA1, sR1) (sV2, sA2, sR2) variables =
+    let mutable isInSet = true
+    for v in variables do
+        if Map.containsKey v sV1 && Map.containsKey v sV2 then 
+            if not(Set.isSubset (Map.find v sV1) (Map.find v sV2) ) then
+                isInSet <- false         
+    isInSet    
+
+let mapUnion (sV1, sA1, sR1) (sV2, sA2, sR2) variables =
+    let mutable (sV, sA, sR) = (Map.empty, Map.empty, Map.empty)
+    for v in variables do
+        if Map.containsKey v sV1 && Map.containsKey v sV2 then 
+            sV <- Map.add v (Set.union (Map.find v sV1) (Map.find v sV2)) sV
+    (sV, sA, sR)
+
+         
+    
+
+let detectionOfSigns edges = 
+    let nodes = getNodes edges
+    let variables = getVariables edges
+    let res = Array.create (nodes.Length) (Map.empty, Map.empty, Map.empty)
+    for variable in variables do 
+        if (variable <> "") then 
+            let (a, b, c) = res.[0]
+            res.[0] <- (Map.add variable (set ['-';'0';'+']) a, b, c)
+            for i in 1..nodes.Length-1 do 
+                res.[i] <- (Map.add variable (set []) a, b, c)
+        printfn "res: \n%A" (res)
+        printfn "var: \n%s" variable
+    let mutable over = false
+    while not over do 
+        let mutable newDS = false
+        for (q1, alpha, q2) in (Set.toList edges) do
+            if not (isSubMap (SHatDS alpha (res.[q1])) (res.[q2]) variables) then
+                newDS <- true
+                res.[q2] <- (mapUnion res.[q2] (SHatDS alpha (res.[q1])) variables)
+        if not newDS then 
+            over <- true
+    res
+
+
+
+
+
 
 //function that takes input from user and prints corresponding graphviz file if the given string has valid GCL syntax
 // and gets an error otherwise
@@ -371,10 +477,11 @@ let rec compute n =
         printfn "HELOOO"
         printfn "AST:\n%A" ast
 
-        let pg = (edges 0 1 (Program ast))
+        let pg = (edges 0 6 (Program ast))
         printfn "PG:\n%A" pg
         printfn "RD:\n%A" (reachingDefinitions pg)
         printfn "LV:\n%A" (liveVariables pg)
+        printfn "DS:\n%A" (detectionOfSigns pg)
         //let pg = (edges 0 -1 ast) 
         //printfn "PG:\n%A" pg
         //printGraphviz pg
