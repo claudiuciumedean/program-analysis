@@ -1,5 +1,8 @@
 program-graph_gc/FSharp.Core.4.3.4/
 program-graph_gc/FsLexYacc.10.0.0/
 program-graph_gc/FsLexYacc.Runtime.10.0.0/
+program-graph_gc/GCLLexer.fs
+program-graph_gc/GCLParser.fs
+program-graph_gc/GCLParser.fsi
 
 .DS_Store
