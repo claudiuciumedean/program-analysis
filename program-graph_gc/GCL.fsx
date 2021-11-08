@@ -17,7 +17,7 @@ open GCLLexer
 
 let mutable fresh = 0
 
-// Parser function for user input string, accepting only GCL valid syntax
+// Parser function for user input string, accepting only MicroC valid syntax
 let parse input =
     // translate string into a buffer of characters
     let lexbuf = LexBuffer<char>.FromString input
@@ -26,7 +26,7 @@ let parse input =
     // return the result of parsing
     res
 
-   
+// Regroup all the types of action into one
 type Action = 
     | Program of program
     | Declaration of decl
@@ -35,21 +35,17 @@ type Action =
     | ExprB of exprb
     | Statement of stat
 
-let rec edges qI qF action = 
-    match action with
-    | Program(p) -> edgesP qI qF p
-    | Declaration(d) -> edgesD qI qF d
-    | Statement(s) -> edgesS qI qF s
-    | _ -> Set.empty
-
-and edgesP qI qF p = 
+// Return the edges of the program graph for a program
+let rec edges qI qF p = 
     match p with 
-    | Prog(d,s) -> fresh <- fresh
-                   let q = fresh
-                   let e1 = edgesD qI q d
-                   let e2 = edgesS q qF s
-                   Set.union e1 e2
+    | Program (Prog(d,s))   -> fresh <- fresh
+                               let q = fresh
+                               let e1 = edgesD qI q d
+                               let e2 = edgesS q qF s
+                               Set.union e1 e2
+    | _                     -> Set.empty
 
+// Return the edges of the program graph for a declaration
 and edgesD qI qF d =
     match d with 
     | VariableDeclaration(l)  -> set [qI, Declaration(d), qF]
@@ -62,6 +58,7 @@ and edgesD qI qF d =
                                  Set.union e1 e2
     | Epsilon -> Set.empty
 
+// Return the edges of the program graph for a statement
 and edgesS qI qF s =
     match s with
     | AssX(l, a)            -> set [qI, Statement(s), qF]
@@ -96,7 +93,84 @@ and edgesS qI qF s =
     | Read(l)               -> set [qI, Statement (s), qF]
     | Write(x)              -> set [qI, Statement (s), qF]
 
-let def alpha = 
+// Get all the nodes of the program graph
+let getNodes edgesSet = 
+    let mutable nodes = Set.empty
+    for (q1, _, q2) in Set.toList edgesSet do
+        nodes <- nodes.Add(q1).Add(q2)
+    Set.toList nodes
+
+// Get all the variables used in an action
+let rec def alpha (SV, SA, SR) = 
+    match alpha with 
+    | Declaration(d)    -> match d with 
+                            | VariableDeclaration(x)    -> (Set.union (Set[x]) SV, SA, SR)
+                            | ArrayDeclaration(_,A)     -> (SV, Set.union (Set[A]) SA, SR)
+                            | RecordDeclaration(R)      -> (SV, SA, Set.union (Set[R]) SR)
+                            | _                         -> (SV, SA, SR)
+    | Statement(s)      -> match s with 
+                            | AssX(x, a)                ->  def (ExprA(a)) (Set.union (Set[x]) SV, SA,SR)
+                            | Ass(l, a)                 -> match l with 
+                                                            | VariableL(x)              -> def (ExprA(a)) (Set.union (Set[x]) SV, SA,SR)
+                                                            | ArrayExpressionL(A,a1)    -> let (SV1, SA1, SR1) = def (ExprA(a)) (SV, Set.union (Set[A]) SA, SR)
+                                                                                           def (ExprA(a1)) (SV1, SA1, SR1)
+                                                            | FirstRecordL(R)           -> def (ExprA(a)) (SV, SA, Set.union (Set[R]) SR)
+                                                            | SecondRecordL(R)          -> def (ExprA(a)) (SV, SA, Set.union (Set[R]) SR)
+                            | RecordAss(R, a1, a2)      -> let (SV1, SA1, SR1) = def (ExprA(a1)) (SV, SA, Set.union (Set[R]) SR)
+                                                           def (ExprA(a2)) (SV1, SA1, SR1)
+                            | Read(l)                   -> match l with 
+                                                            | VariableL(x)              -> (Set.union (Set[x]) SV, SA, SR)
+                                                            | ArrayExpressionL(A,a1)    -> def (ExprA(a1)) (SV, Set.union (Set[A]) SA, SR) 
+                                                            | FirstRecordL(R)           -> (SV, SA, Set.union (Set[R]) SR)
+                                                            | SecondRecordL(R)          -> (SV, SA, Set.union (Set[R]) SR)
+                            | Write(a)          ->  def (ExprA(a)) (SV, SA, SR)
+                            | _ -> (SV, SA, SR)
+    | ExprA(a)              -> match a with 
+                                | VariableA(x)              -> (Set.union (Set[x]) SV, SA, SR)
+                                | ArrayExpressionA(A,a1)    -> def (ExprA(a1)) (SV, Set.union (Set[A]) SA, SR)
+                                | FirstRecordA(R)           -> (SV, SA, Set.union (Set[R]) SR)
+                                | SecondRecordA(R)          -> (SV, SA, Set.union (Set[R]) SR)
+                                | PlusExpr(a1, a2)          -> let (SV1, SA1, SR1) = def (ExprA(a1)) (SV, SA, SR)
+                                                               def (ExprA(a2)) (SV1, SA1, SR1)
+                                | MinusExpr(a1, a2)         -> let (SV1, SA1, SR1) = def (ExprA(a1)) (SV, SA, SR)
+                                                               def (ExprA(a2)) (SV1, SA1, SR1)
+                                | TimesExpr(a1, a2)         -> let (SV1, SA1, SR1) = def (ExprA(a1)) (SV, SA, SR)
+                                                               def (ExprA(a2)) (SV1, SA1, SR1)
+                                | DivExpr(a1, a2)           -> let (SV1, SA1, SR1) = def (ExprA(a1)) (SV, SA, SR)
+                                                               def (ExprA(a2)) (SV1, SA1, SR1)
+                                | ModExpr(a1, a2)           -> let (SV1, SA1, SR1) = def (ExprA(a1)) (SV, SA, SR)
+                                                               def (ExprA(a2)) (SV1, SA1, SR1)
+                                | _                         -> (SV, SA, SR)
+    | ExprB(b)              -> match b with 
+                                | LeThan(a1,a2)     -> let (SV1, SA1, SR1) = def (ExprA(a1)) (SV, SA, SR)
+                                                       def (ExprA(a2)) (SV1, SA1, SR1)
+                                | GrThan(a1,a2)     -> let (SV1, SA1, SR1) = def (ExprA(a1)) (SV, SA, SR)
+                                                       def (ExprA(a2)) (SV1, SA1, SR1)
+                                | LeEqThan(a1,a2)   -> let (SV1, SA1, SR1) = def (ExprA(a1)) (SV, SA, SR)
+                                                       def (ExprA(a2)) (SV1, SA1, SR1)
+                                | GrEqThan(a1,a2)   -> let (SV1, SA1, SR1) = def (ExprA(a1)) (SV, SA, SR)
+                                                       def (ExprA(a2)) (SV1, SA1, SR1)
+                                | Equals(a1,a2)     -> let (SV1, SA1, SR1) = def (ExprA(a1)) (SV, SA, SR)
+                                                       def (ExprA(a2)) (SV1, SA1, SR1)
+                                | NotEquals(a1,a2)  -> let (SV1, SA1, SR1) = def (ExprA(a1)) (SV, SA, SR)
+                                                       def (ExprA(a2)) (SV1, SA1, SR1)
+                                | AndExpr(b1,b2)    -> let (SV1, SA1, SR1) = def (ExprB(b1)) (SV, SA, SR)
+                                                       def (ExprB(b2)) (SV1, SA1, SR1)
+                                | OrExpr(b1,b2)     -> let (SV1, SA1, SR1) = def (ExprB(b1)) (SV, SA, SR)
+                                                       def (ExprB(b2)) (SV1, SA1, SR1)
+                                | NegExpr(b1)       -> def (ExprB(b1)) (SV, SA, SR)
+                                | _                 -> (SV, SA, SR)
+    | _ -> (SV, SA, SR)
+
+// Get all the variables used in the program graph
+let getVariables edges = 
+    let mutable variables = (Set.empty, Set.empty, Set.empty)
+    for (_, alpha, _) in edges do
+        variables <- def alpha variables
+    variables
+
+// Get the variable which get assigned a value in the action "alpha". Returns "" if there is none.
+let leftPart alpha = 
     match alpha with 
     | Declaration(d)    -> match d with 
                             | VariableDeclaration(x)    -> x
@@ -119,21 +193,11 @@ let def alpha =
                             | _         -> ""
     | _                 -> ""
 
-let getNodes edgesSet = 
-    let mutable nodes = Set.empty
-    for (q1, _, q2) in Set.toList edgesSet do
-        nodes <- nodes.Add(q1).Add(q2)
-    Set.toList nodes
-
-let getVariablesRD edges = 
-    let mutable variables = Set.empty
-    for (_, x , _) in edges do
-        variables <- variables.Add(def x)
-    Set.toList variables
-
+// Return the reaching definition analysis of the program graph
 let reachingDefinitions edges = 
     let nodes = getNodes edges
-    let variables = getVariablesRD edges
+    let (SV, SA, SR) = getVariables edges
+    let variables = Set.union (SV) (Set.union SA SR)
     let rd = Array.create (nodes.Length) (Set.empty)
     for variable in variables do 
         if (variable <> "") then 
@@ -142,7 +206,7 @@ let reachingDefinitions edges =
     while not over do 
         let mutable newRd = false
         for (q1, alpha, q2) in (Set.toList edges) do
-            let variable =  def alpha
+            let variable =  leftPart alpha
             let mutable kill = Set.empty
             let mutable gen = Set.empty  
             if (variable <> "") then 
@@ -157,6 +221,7 @@ let reachingDefinitions edges =
             over <- true
     rd
 
+// Return the faint variables of an action
 let rec fv a =
     match a with
     | ExprA(a)  -> match a with
@@ -183,6 +248,7 @@ let rec fv a =
                     | _ -> Set.empty
     | _         ->  Set.empty
 
+// Return the kill set of an action for live variables
 let kill_lv alpha = 
     match alpha with 
     | Declaration(d)    -> match d with 
@@ -202,6 +268,7 @@ let kill_lv alpha =
                             | _         -> Set.empty
     | _                 -> Set.empty
  
+ // Return the gen set of an action for live variables
 let gen_lv alpha = 
     match alpha with 
     | Statement(s)      -> match s with 
@@ -217,11 +284,11 @@ let gen_lv alpha =
     | ExprB(b) -> fv(ExprB(b))
     | _                 -> Set.empty
 
+// Return the live variables analysis of the program graph
 let liveVariables edges =
     let nodes = getNodes edges
     let liveVariablesArr = Array.create (nodes.Length) (Set.empty)
     let mutable terminate = false
- 
     while not terminate do
         let mutable new_lv = false
         for (q1, alpha, q2) in (Set.toList edges) do
@@ -230,65 +297,12 @@ let liveVariables edges =
             if not (Set.isSubset (Set.union (Set.difference liveVariablesArr.[q2] kill) gen) liveVariablesArr.[q1]) then
                 new_lv <- true
                 liveVariablesArr.[q1] <- (Set.union liveVariablesArr.[q1] (Set.union (Set.difference liveVariablesArr.[q2] kill) gen))
-
         if not new_lv then
             terminate <- true
-
     liveVariablesArr
-
-let rec defDV alpha = 
-    match alpha with 
-    | Declaration(d)    -> match d with 
-                            | VariableDeclaration(x)    -> Set[x]
-                            | ArrayDeclaration(_,A)     -> Set[A]
-                            | RecordDeclaration(R)      -> Set[R]
-                            | _                         -> Set.empty
-    | Statement(s)      -> match s with 
-                            | AssX(x, a)    ->  Set.union (Set[x]) (defDV (ExprA(a)))
-                            | Ass(l, a)     -> match l with 
-                                                | VariableL(x) -> Set.union (Set[x]) (defDV (ExprA(a)))
-                                                | ArrayExpressionL(A,a1) -> Set.union (Set[A]) (Set.union (defDV (ExprA(a))) (defDV (ExprA(a1))))
-                                                | FirstRecordL(R) -> Set.union (Set[R]) (defDV (ExprA(a)))
-                                                | SecondRecordL(R) -> Set.union (Set[R]) (defDV (ExprA(a)))
-                            | RecordAss(R, a1, a2) -> Set.union (Set[R]) (Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2))))
-                            | Read(l)            -> match l with 
-                                                    | VariableL(x) -> Set[x]
-                                                    | ArrayExpressionL(A,a1) -> Set.union (Set[A]) (defDV (ExprA(a1)))
-                                                    | FirstRecordL(R) -> Set[R]
-                                                    | SecondRecordL(R) -> Set[R]
-                            | Write(a)          ->  defDV (ExprA(a))
-                            | _ -> Set.empty
-    | ExprA(a)              -> match a with 
-                                | VariableA(x) -> Set[x]
-                                | ArrayExpressionA(A,a1) -> Set.union (Set[A]) (defDV (ExprA(a1)))
-                                | FirstRecordA(R) -> Set[R]
-                                | SecondRecordA(R) -> Set[R]
-                                | PlusExpr(a1, a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
-                                | MinusExpr(a1, a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
-                                | TimesExpr(a1, a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2))) 
-                                | DivExpr(a1, a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
-                                | ModExpr(a1, a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
-                                | _ -> Set.empty
-    | ExprB(b)              -> match b with 
-                                | LeThan(a1,a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
-                                | GrThan(a1,a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
-                                | LeEqThan(a1,a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
-                                | GrEqThan(a1,a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
-                                | Equals(a1,a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
-                                | NotEquals(a1,a2) -> Set.union (defDV (ExprA(a1))) (defDV (ExprA(a2)))
-                                | AndExpr(b1,b2) -> Set.union (defDV (ExprB(b1))) (defDV (ExprB(b2)))
-                                | OrExpr(b1,b2) -> Set.union (defDV (ExprB(b1))) (defDV (ExprB(b2)))
-                                | NegExpr(b1) -> defDV (ExprB(b1))
-                                | _ -> Set.empty
-    | _ -> Set.empty
-
-let getVariables edges = 
-    let mutable variables = Set.empty
-    for (_, alpha, _) in edges do
-        variables <- Set.union (variables) (defDV alpha)
-    variables
  
-let SVD alpha DV = match alpha with
+// Analysis function for the dangerous variable analysis
+let SDV alpha DV = match alpha with
                     | Declaration(a) -> match a with
                                         | VariableDeclaration(x) -> Set.difference DV (Set[x])
                                         | ArrayDeclaration(_, A) -> Set.difference DV (Set[A])
@@ -310,12 +324,11 @@ let SVD alpha DV = match alpha with
                                        | _ -> DV
                     | _ -> DV
 
-
-
-
+// Return the dangerous variables analysis of the program graph
 let dangerousVariables edges = 
     let nodes = getNodes edges
-    let variables = getVariables edges
+    let (SV, SA, SR) = getVariables edges
+    let variables = Set.union SV (Set.union SA SR)
     let dv = Array.create (nodes.Length) (Set.empty)
     for variable in variables do 
         if (variable <> "") then 
@@ -324,19 +337,14 @@ let dangerousVariables edges =
     while not over do 
         let mutable newDV = false
         for (q1, alpha, q2) in (Set.toList edges) do
-            if not (Set.isSubset (SVD alpha (dv.[q1])) (dv.[q2])) then
+            if not (Set.isSubset (SDV alpha (dv.[q1])) (dv.[q2])) then
                 newDV <- true
-                dv.[q2] <- (Set.union dv.[q2] (SVD alpha (dv.[q1])))
+                dv.[q2] <- (Set.union dv.[q2] (SDV alpha (dv.[q1])))
         if not newDV then 
             over <- true
-    dv
+    dv 
 
-
-
-//{y:= 1; x:=2;  while (x<=100) { if (y <10) { y := y +1; } else {x := x +10;}}}
-//printfn "%A" (reachingDefinitions (set [(0, "y", 1); (1, "x", 2); (2, "", 3); (3, "", 4); (4, "y", 2); (3, "", 5); (5, "x", 2); (2, "", 6)]))
-
-//function that takes input from user and prints corresponding graphviz file if the given string has valid GCL syntax
+//function that takes input from user and prints corresponding graphviz file if the given string has valid MicroC syntax
 // and gets an error otherwise
 let rec compute n =
     if n = 0 then
@@ -345,7 +353,6 @@ let rec compute n =
         printfn "Enter a MicroC code: "
         // parse the input string (program)
         let ast = parse (Console.ReadLine())
-        printfn "HELOOO"
         printfn "AST:\n%A" ast
 
         let pg = (edges 0 6 (Program ast))
@@ -353,6 +360,7 @@ let rec compute n =
         printfn "RD:\n%A" (reachingDefinitions pg)
         printfn "LV:\n%A" (liveVariables pg)
         printfn "DV:\n%A" (dangerousVariables pg)
+
         //let pg = (edges 0 -1 ast) 
         //printfn "PG:\n%A" pg
         //printGraphviz pg
@@ -361,4 +369,5 @@ let rec compute n =
         compute n 
 compute 3
 
+//{y:= 1; x:=2;  while (x<=100) { if (y <10) { y := y +1; } else {x := x +10;}}}
 // {int x; int[3] A; {int fst; int snd} R; while (not x == 3) {x := 3 + 5;}}
