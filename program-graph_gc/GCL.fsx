@@ -393,6 +393,30 @@ let format (arr: Array) =
         key <- key + 1
     map
 
+let rec Basic map sets variables=
+    if Map.isEmpty map then 
+        sets
+    else 
+        let mutable key = ""
+        for v in variables do
+            if Map.containsKey v map then 
+                key <- v
+        let signSet = map.[key]
+        printfn "Key:\n%A" key
+        printfn "SignSet:\n%A" signSet
+        let mutable newSets =  Set.empty
+        if Set.isEmpty sets then 
+            for sign in signSet do
+                printfn "Sign:\n%A" sign
+                newSets <- Set.add (Map[(key, Set[sign])]) newSets
+        else 
+            for mapping in sets do 
+                for sign in signSet do
+                    newSets <- Set.add (Map.add key (Set[sign]) mapping) newSets
+        Basic (Map.remove key map) newSets variables
+
+printfn "Basic:\n%A" (Basic (Map[("x", Set['+'; '0']); ("y", Set['-'; '2'])]) (Set.empty) (Set["x"; "y"]))
+
 //function that takes input from user and prints corresponding graphviz file if the given string has valid GCL syntax
 // and gets an error otherwise
 let rec compute n =
@@ -419,4 +443,8 @@ let rec compute n =
 compute 3
 
 //{y:= 1; x:=2;  while (x<=100) { if (y <10) { y := y +1; } else {x := x +10;}}}
-// {int x; int[3] A; {int fst; int snd} R; while (not x == 3) {x := 3 + 5;}}
+
+// set = (x -> Set('-', '+'), y -> Set('-', '+'))
+// sets = sets ((Set x -> Set -) (y -> Set -)), (Set x -> Set -) (y -> Set -)), (Set x -> Set -) (y -> Set -)), (Set x -> Set -) (y -> Set -))
+
+ 
