@@ -389,53 +389,19 @@ let faintVariables edges =
             over <- true
     fv
 
-let format (arr: Array) =     
-    let mutable map = Map.empty
-    let mutable key = 0
-    let size = arr.Length - 1
-    for set in arr do
-        map <- map.Add(key, set)
-        key <- key + 1
-    map
-
-let rec Basic map sets variables=
-    if Map.isEmpty map then 
-        sets
-    else 
-        let mutable key = ""
-        for v in variables do
-            if Map.containsKey v map then 
-                key <- v
-        let signSet = map.[key]
-        printfn "Key:\n%A" key
-        printfn "SignSet:\n%A" signSet
-        let mutable newSets =  Set.empty
-        if Set.isEmpty sets then 
-            for sign in signSet do
-                printfn "Sign:\n%A" sign
-                newSets <- Set.add (Map[(key, Set[sign])]) newSets
-        else 
-            for mapping in sets do 
-                for sign in signSet do
-                    newSets <- Set.add (Map.add key (Set[sign]) mapping) newSets
-        Basic (Map.remove key map) newSets variables
-
-printfn "Basic:\n%A" (Basic (Map[("x", Set['+'; '0']); ("y", Set['-'; '2'])]) (Set.empty) (Set["x"; "y"]))
-
 let sign n = 
     match n with 
     |n when n < 0 -> '-'
     |n when n = 0 -> '0'
     |n when n > 0 -> '+' 
     |_ -> failwith "fail in sign(n) function"
-sign -2 = '-'
+
 
 let op set1 set2 operator = if Set.isEmpty set1 || Set.isEmpty set2 
                             then set [] 
                             // iter through each of the sets and computes the set of signs (see tables in report)
                             else Set.fold(fun acc s1 -> Set.fold (fun acc s2 -> if (operator s1 s2) <> set [] then (operator s1 s2)+acc else set [] ) acc set2 ) (Set.empty) set1 
 
-op (set ['+']) (set ['-';'+']) divideop
 
 let rec AHatDS a (sigmaV, sigmaA, sigmaR) = 
     match a with 
@@ -453,10 +419,6 @@ let rec AHatDS a (sigmaV, sigmaA, sigmaR) =
     | UMinusExpr(a)           -> op (AHatDS a (sigmaV, sigmaA, sigmaR)) (set ['-']) uminusop
     | _                       -> failwith "*** UNDEFINED semantic function AHat ***"
 
-// test AHatDS
-let memDS = (Map [("x", set ['+'; '0']); ("y", set ['-'; '+']) ], Map [("A", set ['-';'+'])], Map [("R.fst", set ['-']);("R.snd", set ['-'])])
-
-AHatDS (UMinusExpr(VariableA "x")) memDS
 
 let rec BHatDS b (sigmaV, sigmaA, sigmaR) = 
     match b with 
@@ -473,12 +435,7 @@ let rec BHatDS b (sigmaV, sigmaA, sigmaR) =
     | LeEqThan(a1,a2)       -> op (AHatDS a1 (sigmaV, sigmaA, sigmaR)) (AHatDS a2 (sigmaV, sigmaA, sigmaR)) lessequalop
     | _                     -> set ['f'] 
 
-BHatDS (LeThan(VariableA "x", VariableA "y")) memDS
 
-// sigmahat = ((Map [("x", set ['+'; '0']), sigmaA, sigmaR)
-// Basic(sigmahat) = ((Map [("x", set [set['0']; set ['+']]), sigmaA, sigmaR)
-
-//let Basic sigmahat =   
 
 let rec SHatDS action (sigmaV, sigmaA, sigmaR) = 
     let isBotDS = (sigmaV.Equals(Map.empty) && sigmaA.Equals(Map.empty) && sigmaR.Equals(Map.empty))
@@ -546,10 +503,6 @@ let rec SHatDS action (sigmaV, sigmaA, sigmaR) =
                         |_ ->botDS
     |_ -> botDS
 
-// test SHatDS
-
-
-SHatDS (Declaration(RecordDeclaration("R"))) memDS
 
 let isSubMap (sV1, sA1, sR1) (sV2, sA2, sR2) variables =
     let mutable isInSet = true
@@ -566,8 +519,29 @@ let mapUnion (sV1, sA1, sR1) (sV2, sA2, sR2) variables =
             sV <- Map.add v (Set.union (Map.find v sV1) (Map.find v sV2)) sV
     (sV, sA, sR)
 
-         
-    
+let rec Basic map sets variables=
+    if Map.isEmpty map then 
+        sets
+    else 
+        let mutable key = ""
+        for v in variables do
+            if Map.containsKey v map then 
+                key <- v
+        let signSet = map.[key]
+        printfn "Key:\n%A" key
+        printfn "SignSet:\n%A" signSet
+        let mutable newSets =  Set.empty
+        if Set.isEmpty sets then 
+            for sign in signSet do
+                printfn "Sign:\n%A" sign
+                newSets <- Set.add (Map[(key, Set[sign])]) newSets
+        else 
+            for mapping in sets do 
+                for sign in signSet do
+                    newSets <- Set.add (Map.add key (Set[sign]) mapping) newSets
+        Basic (Map.remove key map) newSets variables
+
+printfn "Basic:\n%A" (Basic (Map[("x", Set['+'; '0']); ("y", Set['-'; '2'])]) (Set.empty) (Set["x"; "y"]))
 
 let detectionOfSigns edges = 
     let nodes = getNodes edges
@@ -592,6 +566,15 @@ let detectionOfSigns edges =
             over <- true
     res
 
+// Change how the data is displayed
+let format (arr: Array) =     
+    let mutable map = Map.empty
+    let mutable key = 0
+    let size = arr.Length - 1
+    for set in arr do
+        map <- map.Add(key, set)
+        key <- key + 1
+    map
 
 //function that takes input from user and prints corresponding graphviz file if the given string has valid GCL syntax
 // and gets an error otherwise
