@@ -13,3 +13,10 @@ will be prompted to enter GCL code, and the program will print the corresponding
 according to our specified rules and grammar. Otherwise the program will get an error.
 
 4. To try another input, simply run line 110 again (containg only "compute") and enter another string to be tested.
+
+#Commands
+1. brew install nuget
+2. nuget install FsLexYacc -Version 10.0.0
+3. mono FsLexYacc.10.0.0/build/fslex/net46/fslex.exe GCLLexer.fsl --unicode
+4. mono FsLexYacc.10.0.0/build/fsyacc/net46/fsyacc.exe GCLParser.fsp --module GCLParser
+5. fsharpi FILENAME.fsx
