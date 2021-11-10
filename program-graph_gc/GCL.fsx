@@ -417,7 +417,6 @@ let rec AHatDS a (sigmaV, sigmaA, sigmaR) =
     | DivExpr(a1,a2)          -> op (AHatDS a1 (sigmaV, sigmaA, sigmaR)) (AHatDS a2 (sigmaV, sigmaA, sigmaR)) divideop
     | ModExpr(a1,a2)          -> op (AHatDS a1 (sigmaV, sigmaA, sigmaR)) (AHatDS a2 (sigmaV, sigmaA, sigmaR)) modop
     | UMinusExpr(a)           -> op (AHatDS a (sigmaV, sigmaA, sigmaR)) (set ['-']) uminusop
-    | _                       -> failwith "*** UNDEFINED semantic function AHat ***"
 
 
 let rec BHatDS b (sigmaV, sigmaA, sigmaR) = 
@@ -433,7 +432,6 @@ let rec BHatDS b (sigmaV, sigmaA, sigmaR) =
     | GrEqThan(a1,a2)       -> op (AHatDS a1 (sigmaV, sigmaA, sigmaR)) (AHatDS a2 (sigmaV, sigmaA, sigmaR)) biggerequalop
     | LeThan(a1,a2)         -> op (AHatDS a1 (sigmaV, sigmaA, sigmaR)) (AHatDS a2 (sigmaV, sigmaA, sigmaR)) lessop
     | LeEqThan(a1,a2)       -> op (AHatDS a1 (sigmaV, sigmaA, sigmaR)) (AHatDS a2 (sigmaV, sigmaA, sigmaR)) lessequalop
-    | _                     -> set ['f'] 
 
 
 
@@ -484,7 +482,6 @@ let rec SHatDS action (sigmaV, sigmaA, sigmaR) =
                                               | SecondRecordL(snd)     -> if not(isBotDS)
                                                                           then (sigmaV, sigmaA, Map.add snd (set ['-';'0';'+']) sigmaR) 
                                                                           else botDS
-                                              |_ -> botDS
                       | Write(a)         -> if AHatDS a (sigmaV, sigmaA, sigmaR) <> set [] 
                                             then (sigmaV, sigmaA, sigmaR)
                                             else botDS
@@ -504,64 +501,110 @@ let rec SHatDS action (sigmaV, sigmaA, sigmaR) =
     |_ -> botDS
 
 
-let isSubMap (sV1, sA1, sR1) (sV2, sA2, sR2) variables =
+let isSubMap (sV1, sA1, sR1) (sV2, sA2, sR2) (SV, SA, SR) =
     let mutable isInSet = true
-    for v in variables do
-        if Map.containsKey v sV1 && Map.containsKey v sV2 then 
-            if not(Set.isSubset (Map.find v sV1) (Map.find v sV2) ) then
-                isInSet <- false         
+    for V in SV do
+        if Map.containsKey V sV1 && Map.containsKey V sV2 then 
+            if not(Set.isSubset (Map.find V sV1) (Map.find V sV2) ) then
+                isInSet <- false
+    for A in SA do
+        if Map.containsKey A sA1 && Map.containsKey A sA2 then 
+            if not(Set.isSubset (Map.find A sA1) (Map.find A sA2) ) then
+                isInSet <- false
+    for R in SR do
+        if Map.containsKey R sR1 && Map.containsKey R sR2 then 
+            if not(Set.isSubset (Map.find R sR1) (Map.find R sR2) ) then
+                isInSet <- false        
     isInSet    
 
-let mapUnion (sV1, sA1, sR1) (sV2, sA2, sR2) variables =
+let mapUnion (sV1, sA1, sR1) (sV2, sA2, sR2) (SV, SA, SR) =
     let mutable (sV, sA, sR) = (Map.empty, Map.empty, Map.empty)
-    for v in variables do
-        if Map.containsKey v sV1 && Map.containsKey v sV2 then 
-            sV <- Map.add v (Set.union (Map.find v sV1) (Map.find v sV2)) sV
+    for V in SV do
+        if Map.containsKey V sV1 && Map.containsKey V sV2 then 
+            sV <- Map.add V (Set.union (Map.find V sV1) (Map.find V sV2)) sV
+    for A in SA do
+        if Map.containsKey A sA1 && Map.containsKey A sA2 then 
+            sA <- Map.add A (Set.union (Map.find A sA1) (Map.find A sA2)) sA
+    for R in SR do
+        if Map.containsKey R sR1 && Map.containsKey R sR2 then 
+            sR <- Map.add R (Set.union (Map.find R sR1) (Map.find R sR2)) sR
     (sV, sA, sR)
 
-let rec Basic map sets variables=
-    if Map.isEmpty map then 
-        sets
-    else 
+let rec Basic (sV, sA, sR) sets (SV, SA, SR)=
+    if not (Map.isEmpty sV) then 
         let mutable key = ""
-        for v in variables do
-            if Map.containsKey v map then 
-                key <- v
-        let signSet = map.[key]
-        printfn "Key:\n%A" key
-        printfn "SignSet:\n%A" signSet
+        for V in SV do
+            if Map.containsKey V sV then 
+                key <- V
+        let signSet = sV.[key]
         let mutable newSets =  Set.empty
         if Set.isEmpty sets then 
             for sign in signSet do
-                printfn "Sign:\n%A" sign
-                newSets <- Set.add (Map[(key, Set[sign])]) newSets
+                newSets <- Set.add ((Map[(key, Set[sign])]), Map.empty, Map.empty) newSets
         else 
-            for mapping in sets do 
+            for (a, b, c) in sets do 
                 for sign in signSet do
-                    newSets <- Set.add (Map.add key (Set[sign]) mapping) newSets
-        Basic (Map.remove key map) newSets variables
-
-printfn "Basic:\n%A" (Basic (Map[("x", Set['+'; '0']); ("y", Set['-'; '2'])]) (Set.empty) (Set["x"; "y"]))
+                    newSets <- Set.add (Map.add key (Set[sign]) a, b, c) newSets
+        Basic ((Map.remove key sV, sA, sR)) newSets (SV, SA, SR)
+    elif not (Map.isEmpty sA) then
+        let mutable key = ""
+        for A in SA do
+            if Map.containsKey A sA then
+                key <- A
+        let mutable newSets = Set.empty
+        if Set.isEmpty sets then 
+            newSets <- Set.add (Map.empty, Map[(key, sA.[key])], Map.empty) newSets
+        else 
+            for (a, b, c) in sets do 
+                 newSets <- Set.add (a, Map.add key (sA.[key])  b, c) newSets
+        Basic (sV, Map.remove key sA, sR) newSets (SV, SA, SR)
+    elif not (Map.isEmpty sR) then
+        let mutable key = ""
+        for R in SR do
+            if Map.containsKey R sR then 
+                key <- R
+        let signSet = sR.[key]
+        let mutable newSets =  Set.empty
+        if Set.isEmpty sets then 
+            for sign in signSet do
+                newSets <- Set.add (Map.empty, Map.empty, (Map[(key, Set[sign])])) newSets
+        else 
+            for (a, b, c) in sets do 
+                for sign in signSet do
+                    newSets <- Set.add (a, b, Map.add key (Set[sign]) c) newSets
+        Basic (sV, sA, Map.remove key sR) newSets (SV, SA, SR)
+    else
+        sets
 
 let detectionOfSigns edges = 
     let nodes = getNodes edges
-    let variables = getVariables edges
+    let (SV, SA, SR) = getVariables edges
     let res = Array.create (nodes.Length) (Map.empty, Map.empty, Map.empty)
-    for variable in variables do 
-        if (variable <> "") then 
+    for V in SV do 
+        if (V <> "") then 
             let (a, b, c) = res.[0]
-            res.[0] <- (Map.add variable (set ['-';'0';'+']) a, b, c)
+            res.[0] <- (Map.add V (set ['-';'0';'+']) a, b, c)
             for i in 1..nodes.Length-1 do 
-                res.[i] <- (Map.add variable (set []) a, b, c)
-        printfn "res: \n%A" (res)
-        printfn "var: \n%s" variable
+                res.[i] <- (Map.add V (set []) a, b, c)
+    for A in SA do 
+        if (A <> "") then 
+            let (a, b, c) = res.[0]
+            res.[0] <- (a, Map.add A (set ['-';'0';'+']) b, c)
+            for i in 1..nodes.Length-1 do 
+                res.[i] <- (a, Map.add A (set []) b, c)
+    for R in SR do 
+        if (R <> "") then 
+            let (a, b, c) = res.[0]
+            res.[0] <- (a, b, Map.add (R + ".fst)") (set ['-';'0';'+'])  (Map.add (R + ".snd") (set ['-';'0';'+']) c))
+            for i in 1..nodes.Length-1 do 
+                res.[i] <- (a, b, Map.add (R + ".fst)") (set [])  (Map.add (R + ".snd") (set []) c))
     let mutable over = false
     while not over do 
         let mutable newDS = false
         for (q1, alpha, q2) in (Set.toList edges) do
-            if not (isSubMap (SHatDS alpha (res.[q1])) (res.[q2]) variables) then
+            if not (isSubMap (SHatDS alpha (res.[q1])) (res.[q2]) (SV, SA, SR)) then
                 newDS <- true
-                res.[q2] <- (mapUnion res.[q2] (SHatDS alpha (res.[q1])) variables)
+                res.[q2] <- (mapUnion res.[q2] (SHatDS alpha (res.[q1])) (SV, SA, SR))
         if not newDS then 
             over <- true
     res
