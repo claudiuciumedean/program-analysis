@@ -5,7 +5,7 @@
 //#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 // Julien 
 //#r "/Users/Julien/F#/FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
-#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
+ #r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 
 // import of modules, including lexer and parser
 open FSharp.Text.Lexing
@@ -402,6 +402,51 @@ let op set1 set2 operator = if Set.isEmpty set1 || Set.isEmpty set2
                             // iter through each of the sets and computes the set of signs (see tables in report)
                             else Set.fold(fun acc s1 -> Set.fold (fun acc s2 -> if (operator s1 s2) <> set [] then (operator s1 s2)+acc else set [] ) acc set2 ) (Set.empty) set1 
 
+let rec Basic (sV, sA, sR) sets (SV, SA, SR)=
+    if not (Map.isEmpty sV) then 
+        let mutable key = ""
+        for V in SV do
+            if Map.containsKey V sV then 
+                key <- V
+        let signSet = sV.[key]
+        let mutable newSets =  Set.empty
+        if Set.isEmpty sets then 
+            for sign in signSet do
+                newSets <- Set.add ((Map[(key, Set[sign])]), Map.empty, Map.empty) newSets
+        else 
+            for (a, b, c) in sets do 
+                for sign in signSet do
+                    newSets <- Set.add (Map.add key (Set[sign]) a, b, c) newSets
+        Basic ((Map.remove key sV, sA, sR)) newSets (SV, SA, SR)
+    elif not (Map.isEmpty sA) then
+        let mutable key = ""
+        for A in SA do
+            if Map.containsKey A sA then
+                key <- A
+        let mutable newSets = Set.empty
+        if Set.isEmpty sets then 
+            newSets <- Set.add (Map.empty, Map[(key, sA.[key])], Map.empty) newSets
+        else 
+            for (a, b, c) in sets do 
+                 newSets <- Set.add (a, Map.add key (sA.[key])  b, c) newSets
+        Basic (sV, Map.remove key sA, sR) newSets (SV, SA, SR)
+    elif not (Map.isEmpty sR) then
+        let mutable key = ""
+        for R in SR do
+            if Map.containsKey R sR then 
+                key <- R
+        let signSet = sR.[key]
+        let mutable newSets =  Set.empty
+        if Set.isEmpty sets then 
+            for sign in signSet do
+                newSets <- Set.add (Map.empty, Map.empty, (Map[(key, Set[sign])])) newSets
+        else 
+            for (a, b, c) in sets do 
+                for sign in signSet do
+                    newSets <- Set.add (a, b, Map.add key (Set[sign]) c) newSets
+        Basic (sV, sA, Map.remove key sR) newSets (SV, SA, SR)
+    else
+        sets
 
 let rec AHatDS a (sigmaV, sigmaA, sigmaR) = 
     match a with 
@@ -435,7 +480,7 @@ let rec BHatDS b (sigmaV, sigmaA, sigmaR) =
 
 
 
-let rec SHatDS action (sigmaV, sigmaA, sigmaR) = 
+let rec SHatDS action (sigmaV, sigmaA, sigmaR) (SV, SA, SR)= 
     let isBotDS = (sigmaV.Equals(Map.empty) && sigmaA.Equals(Map.empty) && sigmaR.Equals(Map.empty))
     let botDS = (Map.empty, Map.empty, Map.empty)
     match action with 
@@ -498,6 +543,30 @@ let rec SHatDS action (sigmaV, sigmaA, sigmaR) =
                                                             (sigmaV, sigmaA, Map.add (R+".snd") (set ['0']) sigmaR)
                                                        else botDS 
                         |_ ->botDS
+    | ExprB(b)          ->  if (isBotDS) then
+                                botDS
+                            else 
+                                let mutable (sV, sA, sR) = (Map.empty, Map.empty, Map.empty)
+                                for v in SV do
+                                    sV <- Map.add v (Set.empty) sV
+                                for a in SA do
+                                    sV <- Map.add a (Set.empty) sA
+                                for r in SR do
+                                    sR <- Map.add r (Set.empty) sR
+                                let mutable notEmpty = false
+                                for (bV,bA,bR) in Basic (sigmaV, sigmaA, sigmaR) (Set.empty) (SV, SA, SR) do
+                                    if Set.contains 't'  (BHatDS b (sigmaV, sigmaA, sigmaR)) then
+                                        notEmpty <- true
+                                        for v in SV do
+                                            sV <- Map.add v (Set.union (bV.[v]) (sV.[v])) sV
+                                        for a in SA do
+                                            sV <- Map.add a (Set.union (bA.[a]) (sA.[a])) sA
+                                        for r in SR do
+                                            sR <- Map.add r (Set.union (bR.[r]) (sR.[r])) sR
+                                if notEmpty then
+                                    (sV, sA, sR)
+                                else 
+                                    botDS
     |_ -> botDS
 
 
@@ -530,51 +599,6 @@ let mapUnion (sV1, sA1, sR1) (sV2, sA2, sR2) (SV, SA, SR) =
             sR <- Map.add R (Set.union (Map.find R sR1) (Map.find R sR2)) sR
     (sV, sA, sR)
 
-let rec Basic (sV, sA, sR) sets (SV, SA, SR)=
-    if not (Map.isEmpty sV) then 
-        let mutable key = ""
-        for V in SV do
-            if Map.containsKey V sV then 
-                key <- V
-        let signSet = sV.[key]
-        let mutable newSets =  Set.empty
-        if Set.isEmpty sets then 
-            for sign in signSet do
-                newSets <- Set.add ((Map[(key, Set[sign])]), Map.empty, Map.empty) newSets
-        else 
-            for (a, b, c) in sets do 
-                for sign in signSet do
-                    newSets <- Set.add (Map.add key (Set[sign]) a, b, c) newSets
-        Basic ((Map.remove key sV, sA, sR)) newSets (SV, SA, SR)
-    elif not (Map.isEmpty sA) then
-        let mutable key = ""
-        for A in SA do
-            if Map.containsKey A sA then
-                key <- A
-        let mutable newSets = Set.empty
-        if Set.isEmpty sets then 
-            newSets <- Set.add (Map.empty, Map[(key, sA.[key])], Map.empty) newSets
-        else 
-            for (a, b, c) in sets do 
-                 newSets <- Set.add (a, Map.add key (sA.[key])  b, c) newSets
-        Basic (sV, Map.remove key sA, sR) newSets (SV, SA, SR)
-    elif not (Map.isEmpty sR) then
-        let mutable key = ""
-        for R in SR do
-            if Map.containsKey R sR then 
-                key <- R
-        let signSet = sR.[key]
-        let mutable newSets =  Set.empty
-        if Set.isEmpty sets then 
-            for sign in signSet do
-                newSets <- Set.add (Map.empty, Map.empty, (Map[(key, Set[sign])])) newSets
-        else 
-            for (a, b, c) in sets do 
-                for sign in signSet do
-                    newSets <- Set.add (a, b, Map.add key (Set[sign]) c) newSets
-        Basic (sV, sA, Map.remove key sR) newSets (SV, SA, SR)
-    else
-        sets
 
 let detectionOfSigns edges = 
     let nodes = getNodes edges
@@ -585,28 +609,31 @@ let detectionOfSigns edges =
             let (a, b, c) = res.[0]
             res.[0] <- (Map.add V (set ['-';'0';'+']) a, b, c)
             for i in 1..nodes.Length-1 do 
+                let (a,b,c) = res.[i]
                 res.[i] <- (Map.add V (set []) a, b, c)
     for A in SA do 
         if (A <> "") then 
             let (a, b, c) = res.[0]
             res.[0] <- (a, Map.add A (set ['-';'0';'+']) b, c)
             for i in 1..nodes.Length-1 do 
+                let (a,b,c) = res.[i]
                 res.[i] <- (a, Map.add A (set []) b, c)
     for R in SR do 
         if (R <> "") then 
             let (a, b, c) = res.[0]
             res.[0] <- (a, b, Map.add (R + ".fst)") (set ['-';'0';'+'])  (Map.add (R + ".snd") (set ['-';'0';'+']) c))
             for i in 1..nodes.Length-1 do 
+                let (a,b,c) = res.[i]
                 res.[i] <- (a, b, Map.add (R + ".fst)") (set [])  (Map.add (R + ".snd") (set []) c))
     let mutable over = false
     while not over do 
         let mutable newDS = false
         for (q1, alpha, q2) in (Set.toList edges) do
-            if not (isSubMap (SHatDS alpha (res.[q1])) (res.[q2]) (SV, SA, SR)) then
+            if not (isSubMap (SHatDS alpha (res.[q1]) (SV, SA, SR)) (res.[q2]) (SV, SA, SR)) then
                 newDS <- true
-                res.[q2] <- (mapUnion res.[q2] (SHatDS alpha (res.[q1])) (SV, SA, SR))
+                res.[q2] <- (mapUnion res.[q2] (SHatDS alpha (res.[q1]) (SV, SA, SR)) (SV, SA, SR))
         if not newDS then 
-            over <- true
+            over <- true 
     res
 
 // Change how the data is displayed
@@ -645,7 +672,8 @@ let rec compute n =
         compute n 
 compute 3
 
-//{y:= 1; x:=2;  while (x<=100) { if (y <10) { y := y +1; } else {x := x +10;}}}
+//{y:= 1; x:=2; while (x<=0) { if (y <10) { y := y +1; } else {x := x +10;}}}
+//{y:= 1; x:=2; while (x==0) { if (y <10) { y := y +1; } else {x := x +10;}}}
 
 // {int x; int[3] A; {int fst; int snd} R; while (not x == 3) {x := 3 + 5;}}
 // set = (x -> Set('-', '+'), y -> Set('-', '+'))

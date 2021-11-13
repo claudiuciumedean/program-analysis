@@ -6,3 +6,5 @@ program-graph_gc/GCLParser.fs
 program-graph_gc/GCLParser.fsi
 
 .DS_Store
+.fake
+.ionide
