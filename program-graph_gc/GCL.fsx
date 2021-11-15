@@ -5,7 +5,7 @@
 //#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 // Julien 
 //#r "/Users/Julien/F#/FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
- #r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
+#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 
 // import of modules, including lexer and parser
 open FSharp.Text.Lexing
@@ -672,8 +672,9 @@ let rec compute n =
         compute n 
 compute 3
 
-//{y:= 1; x:=2; while (x<=0) { if (y <10) { y := y +1; } else {x := x +10;}}}
+//{y:= 1; x:=2; while (x<=100) { if (y <10) { y := y +1; } else {x := x +10;}}}
 //{y:= 1; x:=2; while (x==0) { if (y <10) { y := y +1; } else {x := x +10;}}}
+//{y:= 1; x:=0; while (x==0) { if (y <10) { y := y +1; } else {x := x +10;}}}
 
 // {int x; int[3] A; {int fst; int snd} R; while (not x == 3) {x := 3 + 5;}}
 // set = (x -> Set('-', '+'), y -> Set('-', '+'))
