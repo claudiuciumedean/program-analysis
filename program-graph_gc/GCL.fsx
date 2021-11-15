@@ -200,6 +200,7 @@ let leftPart alpha =
 
 // Return the reaching definition analysis of the program graph
 let reachingDefinitions edges = 
+    let mutable count = 0
     let nodes = getNodes edges
     let (SV, SA, SR) = getVariables edges
     let variables = Set.union (SV) (Set.union SA SR)
@@ -211,6 +212,7 @@ let reachingDefinitions edges =
     while not over do 
         let mutable newRd = false
         for (q1, alpha, q2) in (Set.toList edges) do
+            count <- count + 1
             let variable =  leftPart alpha
             let mutable kill = Set.empty
             let mutable gen = Set.empty  
@@ -224,6 +226,75 @@ let reachingDefinitions edges =
                 rd.[q2] <- (Set.union rd.[q2] (Set.union (Set.difference rd.[q1] kill) gen))
         if not newRd then 
             over <- true
+    printfn "RD count:\n%A" count
+    rd
+
+// Return the reaching definition analysis of the program graph using worklist queues
+let reachingDefinitionsWorklistQueue edges =
+    let mutable count = 0
+    let nodes = getNodes edges
+    let (SV, SA, SR) = getVariables edges
+    let variables = Set.union (SV) (Set.union SA SR)
+    let rd = Array.create (nodes.Length) (Set.empty)
+    let mutable w =[]
+    for variable in variables do 
+        if (variable <> "") then 
+            rd.[0] <- rd.[0].Add(variable, -1, 0)
+    for node in nodes do
+        w <- w @ [node]
+    while not w.IsEmpty do
+        let q = w.Head
+        w <- w.Tail
+        for (q1, alpha, q2) in (Set.toList edges) do
+            if q = q1 then 
+                count <- count + 1
+                let variable =  leftPart alpha
+                let mutable kill = Set.empty
+                let mutable gen = Set.empty  
+                if (variable <> "") then 
+                    gen <- gen.Add(variable, q1, q2)
+                for q in (List.append nodes [-1]) do
+                    for q' in nodes do
+                        kill <- kill.Add(variable, q, q') 
+                if not (Set.isSubset (Set.union (Set.difference rd.[q1] kill) gen) rd.[q2]) then
+                    rd.[q2] <- (Set.union rd.[q2] (Set.union (Set.difference rd.[q1] kill) gen))
+                    if not (List.exists ((=) q2) w) then
+                        w <- w @ [q2]
+    printfn "RD Worklist Queue count:\n%A" count
+    rd
+
+// Return the reaching definition analysis of the program graph using worklist queues
+let reachingDefinitionsWorklistStack edges =
+    let mutable count = 0
+    let nodes = getNodes edges
+    let (SV, SA, SR) = getVariables edges
+    let variables = Set.union (SV) (Set.union SA SR)
+    let rd = Array.create (nodes.Length) (Set.empty)
+    let mutable w =[]
+    for variable in variables do 
+        if (variable <> "") then 
+            rd.[0] <- rd.[0].Add(variable, -1, 0)
+    for node in nodes do
+        w <- [node] @ w
+    while not w.IsEmpty do
+        let q = w.Head
+        w <- w.Tail
+        for (q1, alpha, q2) in (Set.toList edges) do
+            if q = q1 then 
+                count <- count + 1
+                let variable =  leftPart alpha
+                let mutable kill = Set.empty
+                let mutable gen = Set.empty  
+                if (variable <> "") then 
+                    gen <- gen.Add(variable, q1, q2)
+                for q in (List.append nodes [-1]) do
+                    for q' in nodes do
+                        kill <- kill.Add(variable, q, q') 
+                if not (Set.isSubset (Set.union (Set.difference rd.[q1] kill) gen) rd.[q2]) then
+                    rd.[q2] <- (Set.union rd.[q2] (Set.union (Set.difference rd.[q1] kill) gen))
+                    if not (List.exists ((=) q2) w) then
+                        w <- [q2] @ w
+    printfn "RD Worklist Stack count:\n%A" count
     rd
 
 // Return the faint variables of an action
@@ -660,6 +731,8 @@ let rec compute n =
         let pg = (edges 0 6 (Program ast))
         printfn "PG:\n%A" pg
         printfn "RD:\n%A" (format (reachingDefinitions pg))
+        printfn "RD Worklist Queue:\n%A" (format (reachingDefinitionsWorklistQueue pg))
+        printfn "RD Worklist Stack:\n%A" (format (reachingDefinitionsWorklistStack pg))
         printfn "LV:\n%A" (format (liveVariables pg))
         printfn "DV:\n%A" (format (dangerousVariables pg))
         printfn "FV:\n%A" (format (faintVariables pg))
