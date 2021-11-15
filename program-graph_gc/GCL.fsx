@@ -4,8 +4,8 @@
 // Windows (Stina)
 //#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 // Julien 
-#r "/Users/Julien/F#/FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
-//#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
+//#r "/Users/Julien/F#/FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
+#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 
 // import of modules, including lexer and parser
 open FSharp.Text.Lexing
@@ -707,6 +707,47 @@ let detectionOfSigns edges =
             over <- true 
     res
 
+let rec DFS edges (node: int) (T, V, (K: int), rP) =
+    let mutable newT = T
+    let mutable newV = Set.union V (Set[node])
+    let mutable newK = K
+    let mutable newRP = Array.copy rP
+
+    let mutable over = false
+
+    while not over do
+        let mutable newDFS = false
+
+        for (q1, alpha, q2) in (Set.toList edges) do
+            if q1 = node && (not (Set.contains q2 (newV))) then
+                newDFS <- true
+                newT <- Set.union T (Set[(q1, q2)])
+                let (newT', newV', newK', newRP') = DFS edges q2 (newT, newV, newK, newRP)
+
+                newT <- newT'
+                newV <- newV'
+                newK <- newK'
+                newRP <- newRP'
+    
+        if not newDFS then
+            over <- true
+
+    newRP.[node] <- newK - 1
+    newK <- newK - 1
+
+    (newT, newV, newK, newRP)
+
+let reversePostOrder edges =
+    let size = (getNodes edges).Length
+    let mutable T = Set.empty
+    let mutable V = Set.empty
+    let mutable K = size
+    let mutable rP = Array.create size (-1)
+
+    let mutable (T', V', K', rP') = DFS edges 0 (T, V, K, rP)
+    T', rP'
+
+
 // Change how the data is displayed
 let format (arr: Array) =     
     let mutable map = Map.empty
@@ -737,6 +778,7 @@ let rec compute n =
         printfn "DV:\n%A" (format (dangerousVariables pg))
         printfn "FV:\n%A" (format (faintVariables pg))
         printfn "DS:\n%A" (format (detectionOfSigns pg))
+        printfn "Reverse Post order:\n%A" (reversePostOrder pg)
         //let pg = (edges 0 -1 ast) 
         //printfn "PG:\n%A" pg
         //printGraphviz pg
