@@ -721,7 +721,7 @@ let rec DFS edges (node: int) (T, V, (K: int), rP) =
         for (q1, alpha, q2) in (Set.toList edges) do
             if q1 = node && (not (Set.contains q2 (newV))) then
                 newDFS <- true
-                newT <- Set.union T (Set[(q1, q2)])
+                newT <- Set.union newT (Set[(q1, q2)])
                 let (newT', newV', newK', newRP') = DFS edges q2 (newT, newV, newK, newRP)
 
                 newT <- newT'
@@ -732,7 +732,7 @@ let rec DFS edges (node: int) (T, V, (K: int), rP) =
         if not newDFS then
             over <- true
 
-    newRP.[node] <- newK - 1
+    newRP.[newK - 1] <- node
     newK <- newK - 1
 
     (newT, newV, newK, newRP)
@@ -758,6 +758,45 @@ let format (arr: Array) =
         key <- key + 1
     map
 
+let reachingDefinitionsRPO edges (T, RP) = 
+    let mutable count = 0
+    let nodes = getNodes edges
+    let (SV, SA, SR) = getVariables edges
+    let variables = Set.union (SV) (Set.union SA SR)
+    let rd = Array.create (nodes.Length) (Set.empty)
+
+    for variable in variables do 
+        if (variable <> "") then 
+            rd.[0] <- rd.[0].Add(variable, -1, 0)
+
+    let mutable over = false
+
+    while not over do 
+        let mutable newRd = false
+
+        for q in RP do
+            for (q1, alpha, q2) in (Set.toList edges) do
+                if q = q1 then
+                    count <- count + 1
+                    let variable =  leftPart alpha
+                    let mutable kill = Set.empty
+                    let mutable gen = Set.empty 
+
+                    if (variable <> "") then 
+                        gen <- gen.Add(variable, q1, q2)
+                    for q in (List.append nodes [-1]) do
+                        for q' in nodes do
+                            kill <- kill.Add(variable, q, q') 
+                    if not (Set.isSubset (Set.union (Set.difference rd.[q1] kill) gen) rd.[q2]) then
+                        newRd <- true
+                        rd.[q2] <- (Set.union rd.[q2] (Set.union (Set.difference rd.[q1] kill) gen))
+
+            if not newRd then 
+                over <- true
+
+    printfn "RD Post Order count:\n%A" count
+    rd
+
 //function that takes input from user and prints corresponding graphviz file if the given string has valid GCL syntax
 // and gets an error otherwise
 let rec compute n =
@@ -778,7 +817,7 @@ let rec compute n =
         printfn "DV:\n%A" (format (dangerousVariables pg))
         printfn "FV:\n%A" (format (faintVariables pg))
         printfn "DS:\n%A" (format (detectionOfSigns pg))
-        printfn "Reverse Post order:\n%A" (reversePostOrder pg)
+        printfn "RD Post order:\n%A" (format (reachingDefinitionsRPO pg (reversePostOrder pg)))
         //let pg = (edges 0 -1 ast) 
         //printfn "PG:\n%A" pg
         //printGraphviz pg
