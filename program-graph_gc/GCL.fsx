@@ -4,8 +4,8 @@
 // Windows (Stina)
 //#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 // Julien 
-//#r "/Users/Julien/F#/FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
-#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
+#r "/Users/Julien/F#/FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
+//#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 
 // import of modules, including lexer and parser
 open FSharp.Text.Lexing
@@ -621,17 +621,17 @@ let rec SHatDS action (sigmaV, sigmaA, sigmaR) (SV, SA, SR)=
                                 for v in SV do
                                     sV <- Map.add v (Set.empty) sV
                                 for a in SA do
-                                    sV <- Map.add a (Set.empty) sA
+                                    sA <- Map.add a (Set.empty) sA
                                 for r in SR do
                                     sR <- Map.add r (Set.empty) sR
                                 let mutable notEmpty = false
                                 for (bV,bA,bR) in Basic (sigmaV, sigmaA, sigmaR) (Set.empty) (SV, SA, SR) do
-                                    if Set.contains 't'  (BHatDS b (sigmaV, sigmaA, sigmaR)) then
+                                    if Set.contains 't'  (BHatDS b (bV, bA, bR)) then
                                         notEmpty <- true
                                         for v in SV do
                                             sV <- Map.add v (Set.union (bV.[v]) (sV.[v])) sV
                                         for a in SA do
-                                            sV <- Map.add a (Set.union (bA.[a]) (sA.[a])) sA
+                                            sA <- Map.add a (Set.union (bA.[a]) (sA.[a])) sA
                                         for r in SR do
                                             sR <- Map.add r (Set.union (bR.[r]) (sR.[r])) sR
                                 if notEmpty then
