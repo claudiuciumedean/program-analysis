@@ -4,8 +4,8 @@
 // Windows (Stina)
 //#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 // Julien 
-#r "/Users/Julien/F#/FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
-//#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
+//#r "/Users/Julien/F#/FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
+#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 
 // import of modules, including lexer and parser
 open FSharp.Text.Lexing
@@ -200,6 +200,46 @@ let leftPart alpha =
                             | _         -> ""
     | _                 -> ""
 
+let rec DFS edges (node: int) (T, V, (K: int), rP) =
+    let mutable newT = T
+    let mutable newV = Set.union V (Set[node])
+    let mutable newK = K
+    let mutable newRP = Array.copy rP
+
+    let mutable over = false
+
+    while not over do
+        let mutable newDFS = false
+
+        for (q1, alpha, q2) in (Set.toList edges) do
+            if q1 = node && (not (Set.contains q2 (newV))) then
+                newDFS <- true
+                newT <- Set.union newT (Set[(q1, q2)])
+                let (newT', newV', newK', newRP') = DFS edges q2 (newT, newV, newK, newRP)
+
+                newT <- newT'
+                newV <- newV'
+                newK <- newK'
+                newRP <- newRP'
+    
+        if not newDFS then
+            over <- true
+
+    newRP.[newK - 1] <- node
+    newK <- newK - 1
+
+    (newT, newV, newK, newRP)
+
+let reversePostOrder edges =
+    let size = (getNodes edges).Length
+    let mutable T = Set.empty
+    let mutable V = Set.empty
+    let mutable K = size
+    let mutable rP = Array.create size (-1)
+
+    let mutable (T', V', K', rP') = DFS edges 0 (T, V, K, rP)
+    T', rP'
+
 // Return the reaching definition analysis of the program graph
 let reachingDefinitions edges = 
     let mutable count = 0
@@ -239,11 +279,14 @@ let reachingDefinitionsWorklistQueue edges =
     let variables = Set.union (SV) (Set.union SA SR)
     let rd = Array.create (nodes.Length) (Set.empty)
     let mutable w =[]
+
     for variable in variables do 
         if (variable <> "") then 
             rd.[0] <- rd.[0].Add(variable, -1, 0)
+
     for node in nodes do
         w <- w @ [node]
+
     while not w.IsEmpty do
         let q = w.Head
         w <- w.Tail
@@ -297,6 +340,45 @@ let reachingDefinitionsWorklistStack edges =
                     if not (List.exists ((=) q2) w) then
                         w <- [q2] @ w
     printfn "RD Worklist Stack count:\n%A" count
+    rd
+
+let reachingDefinitionsRPO edges (T, RP) = 
+    let mutable count = 0
+    let nodes = getNodes edges
+    let (SV, SA, SR) = getVariables edges
+    let variables = Set.union (SV) (Set.union SA SR)
+    let rd = Array.create (nodes.Length) (Set.empty)
+
+    for variable in variables do 
+        if (variable <> "") then 
+            rd.[0] <- rd.[0].Add(variable, -1, 0)
+
+    let mutable over = false
+
+    while not over do 
+        let mutable newRd = false
+
+        for q in RP do
+            for (q1, alpha, q2) in (Set.toList edges) do
+                if q = q1 then
+                    count <- count + 1
+                    let variable =  leftPart alpha
+                    let mutable kill = Set.empty
+                    let mutable gen = Set.empty 
+
+                    if (variable <> "") then 
+                        gen <- gen.Add(variable, q1, q2)
+                    for q in (List.append nodes [-1]) do
+                        for q' in nodes do
+                            kill <- kill.Add(variable, q, q') 
+                    if not (Set.isSubset (Set.union (Set.difference rd.[q1] kill) gen) rd.[q2]) then
+                        newRd <- true
+                        rd.[q2] <- (Set.union rd.[q2] (Set.union (Set.difference rd.[q1] kill) gen))
+
+        if not newRd then 
+            over <- true
+
+    printfn "RD Post Order count:\n%A" count
     rd
 
 // Return the faint variables of an action
@@ -364,12 +446,15 @@ let gen_lv alpha =
 
 // Return the live variables analysis of the program graph
 let liveVariables edges =
+    let mutable count = 0
     let nodes = getNodes edges
     let liveVariablesArr = Array.create (nodes.Length) (Set.empty)
     let mutable terminate = false
+
     while not terminate do
         let mutable new_lv = false
         for (q1, alpha, q2) in (Set.toList edges) do
+            count <- count + 1
             let kill = kill_lv alpha
             let gen = gen_lv alpha
             if not (Set.isSubset (Set.union (Set.difference liveVariablesArr.[q2] kill) gen) liveVariablesArr.[q1]) then
@@ -377,8 +462,91 @@ let liveVariables edges =
                 liveVariablesArr.[q1] <- (Set.union liveVariablesArr.[q1] (Set.union (Set.difference liveVariablesArr.[q2] kill) gen))
         if not new_lv then
             terminate <- true
+
+    printfn "LV Chaotic count:\n%A" count
     liveVariablesArr
  
+let liveVariablesWorklistQueue edges =
+    let mutable count = 0
+    let mutable w = []
+
+    let nodes = getNodes edges
+    let liveVariablesArr = Array.create (nodes.Length) (Set.empty)
+
+    for node in nodes do
+        w <- w @ [node]
+
+    while not w.IsEmpty do
+        let q = w.Head
+        w <- w.Tail
+
+        for (q1, alpha, q2) in (Set.toList edges) do
+            if q = q2 then
+                count <- count + 1
+                let kill = kill_lv alpha
+                let gen = gen_lv alpha
+
+                if not (Set.isSubset (Set.union (Set.difference liveVariablesArr.[q2] kill) gen) liveVariablesArr.[q1]) then
+                    liveVariablesArr.[q1] <- (Set.union liveVariablesArr.[q1] (Set.union (Set.difference liveVariablesArr.[q2] kill) gen))
+                    if not (List.exists ((=) q1) w) then
+                        w <- w @ [q1]
+
+    printfn "LV Worklist Queue count:\n%A" count
+    liveVariablesArr
+
+let liveVariablesWorklistStack edges =
+    let mutable count = 0
+    let mutable w = []
+
+    let nodes = getNodes edges
+    let liveVariablesArr = Array.create (nodes.Length) (Set.empty)
+
+    for node in nodes do
+        w <- [node] @ w
+
+    while not w.IsEmpty do
+        let q = w.Head
+        w <- w.Tail
+
+        for (q1, alpha, q2) in (Set.toList edges) do
+            if q = q2 then
+                count <- count + 1
+                let kill = kill_lv alpha
+                let gen = gen_lv alpha
+
+                if not (Set.isSubset (Set.union (Set.difference liveVariablesArr.[q2] kill) gen) liveVariablesArr.[q1]) then
+                    liveVariablesArr.[q1] <- (Set.union liveVariablesArr.[q1] (Set.union (Set.difference liveVariablesArr.[q2] kill) gen))
+                    if not (List.exists ((=) q1) w) then
+                        w <- [q1] @ w
+
+    printfn "LV Worklist Stack count:\n%A" count
+    liveVariablesArr
+ 
+let liveVariablesRPO edges (T, RP) =
+    let mutable count = 0
+    let nodes = getNodes edges
+    let liveVariablesArr = Array.create (nodes.Length) (Set.empty)
+    let mutable terminate = false
+    printfn "RP:%A" RP
+    while not terminate do
+        let mutable new_lv = false
+
+        for q in RP do
+            for (q1, alpha, q2) in (Set.toList edges) do
+                if q = q2 then
+                    count <- count + 1
+                    let kill = kill_lv alpha
+                    let gen = gen_lv alpha
+                    if not (Set.isSubset (Set.union (Set.difference liveVariablesArr.[q2] kill) gen) liveVariablesArr.[q1]) then
+                        new_lv <- true
+                        liveVariablesArr.[q1] <- (Set.union liveVariablesArr.[q1] (Set.union (Set.difference liveVariablesArr.[q2] kill) gen))
+
+        if not new_lv then
+            terminate <- true
+
+    printfn "LV Post order count:\n%A" count
+    liveVariablesArr
+
 // Analysis function for the dangerous variable analysis
 let SDV alpha DV = match alpha with
                     | Declaration(a) -> match a with
@@ -404,6 +572,7 @@ let SDV alpha DV = match alpha with
 
 // Return the dangerous variables analysis of the program graph
 let dangerousVariables edges = 
+    let mutable count = 0
     let nodes = getNodes edges
     let (SV, SA, SR) = getVariables edges
     let variables = Set.union SV (Set.union SA SR)
@@ -415,12 +584,107 @@ let dangerousVariables edges =
     while not over do 
         let mutable newDV = false
         for (q1, alpha, q2) in (Set.toList edges) do
+            count <- count + 1
             if not (Set.isSubset (SDV alpha (dv.[q1])) (dv.[q2])) then
                 newDV <- true
                 dv.[q2] <- (Set.union dv.[q2] (SDV alpha (dv.[q1])))
-        if not newDV then 
+        if not newDV then
             over <- true
-    dv 
+    
+    printfn "DV Chaotic count:\n%A" count
+    dv
+
+let dangerousVariablesWorklistQueue edges = 
+    let mutable count = 0
+    let mutable w = []
+
+    let nodes = getNodes edges
+    let (SV, SA, SR) = getVariables edges
+    let variables = Set.union SV (Set.union SA SR)
+    let dv = Array.create (nodes.Length) (Set.empty)
+
+    for variable in variables do
+        if (variable <> "") then 
+            dv.[0] <- dv.[0].Add(variable)
+
+    for node in nodes do
+        w <- w @ [node]
+
+    while not w.IsEmpty do 
+        let q = w.Head
+        w <- w.Tail
+
+        for (q1, alpha, q2) in (Set.toList edges) do
+            if q = q1 then
+                count <- count + 1
+                if not (Set.isSubset (SDV alpha (dv.[q1])) (dv.[q2])) then
+                    dv.[q2] <- (Set.union dv.[q2] (SDV alpha (dv.[q1])))
+
+                    if not (List.exists ((=) q2) w) then
+                        w <- w @ [q2]
+    
+    printfn "DV Worklist Queue count:\n%A" count
+    dv
+
+let dangerousVariablesWorklistStack edges = 
+    let mutable count = 0
+    let mutable w = []
+
+    let nodes = getNodes edges
+    let (SV, SA, SR) = getVariables edges
+    let variables = Set.union SV (Set.union SA SR)
+    let dv = Array.create (nodes.Length) (Set.empty)
+
+    for variable in variables do
+        if (variable <> "") then 
+            dv.[0] <- dv.[0].Add(variable)
+
+    for node in nodes do
+        w <- [node] @ w
+
+    while not w.IsEmpty do 
+        let q = w.Head
+        w <- w.Tail
+
+        for (q1, alpha, q2) in (Set.toList edges) do
+            if q = q1 then
+                count <- count + 1
+                if not (Set.isSubset (SDV alpha (dv.[q1])) (dv.[q2])) then
+                    dv.[q2] <- (Set.union dv.[q2] (SDV alpha (dv.[q1])))
+
+                    if not (List.exists ((=) q2) w) then
+                        w <- [q2] @ w
+    
+    printfn "DV Worklist Stack count:\n%A" count
+    dv
+
+let dangerousVariablesRPO edges (T, RP) = 
+    let mutable count = 0
+    let nodes = getNodes edges
+    let (SV, SA, SR) = getVariables edges
+    let variables = Set.union SV (Set.union SA SR)
+    let dv = Array.create (nodes.Length) (Set.empty)
+    
+    for variable in variables do 
+        if (variable <> "") then 
+            dv.[0] <- dv.[0].Add(variable)
+
+    let mutable over = false
+    while not over do 
+        let mutable newDV = false
+        for q in RP do
+            for (q1, alpha, q2) in (Set.toList edges) do
+                if q = q1 then
+                    count <- count + 1
+                    if not (Set.isSubset (SDV alpha (dv.[q1])) (dv.[q2])) then
+                        newDV <- true
+                        dv.[q2] <- (Set.union dv.[q2] (SDV alpha (dv.[q1])))
+        
+            if not newDV then
+                over <- true
+    
+    printfn "DV Reverse Post Order count:\n%A" count
+    dv
 
 // Analysis function for the faint variables analysis
 let SFV alpha FV = match alpha with
@@ -448,18 +712,93 @@ let SFV alpha FV = match alpha with
                     | _ -> FV
 
 // Return the faint variables analysis of the program graph 
-let faintVariables edges = 
+let faintVariables edges =
+    let mutable count = 0
     let nodes = getNodes edges
     let fv = Array.create (nodes.Length) (Set.empty)
     let mutable over = false
+
     while not over do 
         let mutable newFV = false
         for (q1, alpha, q2) in (Set.toList edges) do
+            count <- count + 1
             if not (Set.isSubset (SFV alpha (fv.[q2])) (fv.[q1])) then
                 newFV <- true
                 fv.[q1] <- (Set.union fv.[q1] (SFV alpha (fv.[q2])))
         if not newFV then
             over <- true
+
+    printfn "FV Chaotic count:\n%A" count
+    fv
+
+let faintVariablesWorklistQueue edges = 
+    let nodes = getNodes edges
+    let fv = Array.create (nodes.Length) (Set.empty)
+    let mutable count = 0
+    let mutable w = []
+
+    for node in nodes do
+        w <- w @ [node]
+
+    while not w.IsEmpty do
+        let q = w.Head
+        w <- w.Tail
+        
+        for (q1, alpha, q2) in (Set.toList edges) do
+            if q = q2 then
+                count <- count + 1
+                if not (Set.isSubset (SFV alpha (fv.[q2])) (fv.[q1])) then
+                    fv.[q1] <- (Set.union fv.[q1] (SFV alpha (fv.[q2])))
+                    if not (List.exists ((=) q1) w) then
+                        w <- w @ [q1]
+
+    printfn "FV Worklist Queue count:\n%A" count
+    fv
+
+let faintVariablesWorklistStack edges = 
+    let nodes = getNodes edges
+    let fv = Array.create (nodes.Length) (Set.empty)
+    let mutable count = 0
+    let mutable w = []
+
+    for node in nodes do
+        w <- [node] @ w
+
+    while not w.IsEmpty do
+        let q = w.Head
+        w <- w.Tail
+        
+        for (q1, alpha, q2) in (Set.toList edges) do
+            if q = q2 then
+                count <- count + 1
+                if not (Set.isSubset (SFV alpha (fv.[q2])) (fv.[q1])) then
+                    fv.[q1] <- (Set.union fv.[q1] (SFV alpha (fv.[q2])))
+                    if not (List.exists ((=) q1) w) then
+                        w <- [q1] @ w
+
+    printfn "FV Worklist Stack count:\n%A" count
+    fv
+
+let faintVariablesRPO edges (T, RP)=
+    let mutable count = 0
+    let nodes = getNodes edges
+    let fv = Array.create (nodes.Length) (Set.empty)
+    let mutable over = false
+
+    while not over do 
+        let mutable newFV = false
+
+        for q in RP do
+            for (q1, alpha, q2) in (Set.toList edges) do
+                if q = q2 then
+                    count <- count + 1
+                    if not (Set.isSubset (SFV alpha (fv.[q2])) (fv.[q1])) then
+                        newFV <- true
+                        fv.[q1] <- (Set.union fv.[q1] (SFV alpha (fv.[q2])))
+        if not newFV then
+            over <- true
+
+    printfn "FV Reverse Post Order count:\n%A" count
     fv
 
 let sign n = 
@@ -709,46 +1048,6 @@ let detectionOfSigns edges =
             over <- true 
     res
 
-let rec DFS edges (node: int) (T, V, (K: int), rP) =
-    let mutable newT = T
-    let mutable newV = Set.union V (Set[node])
-    let mutable newK = K
-    let mutable newRP = Array.copy rP
-
-    let mutable over = false
-
-    while not over do
-        let mutable newDFS = false
-
-        for (q1, alpha, q2) in (Set.toList edges) do
-            if q1 = node && (not (Set.contains q2 (newV))) then
-                newDFS <- true
-                newT <- Set.union newT (Set[(q1, q2)])
-                let (newT', newV', newK', newRP') = DFS edges q2 (newT, newV, newK, newRP)
-
-                newT <- newT'
-                newV <- newV'
-                newK <- newK'
-                newRP <- newRP'
-    
-        if not newDFS then
-            over <- true
-
-    newRP.[newK - 1] <- node
-    newK <- newK - 1
-
-    (newT, newV, newK, newRP)
-
-let reversePostOrder edges =
-    let size = (getNodes edges).Length
-    let mutable T = Set.empty
-    let mutable V = Set.empty
-    let mutable K = size
-    let mutable rP = Array.create size (-1)
-
-    let mutable (T', V', K', rP') = DFS edges 0 (T, V, K, rP)
-    T', rP'
-
 
 // Change how the data is displayed
 let format (arr: Array) =     
@@ -760,45 +1059,6 @@ let format (arr: Array) =
         key <- key + 1
     map
 
-let reachingDefinitionsRPO edges (T, RP) = 
-    let mutable count = 0
-    let nodes = getNodes edges
-    let (SV, SA, SR) = getVariables edges
-    let variables = Set.union (SV) (Set.union SA SR)
-    let rd = Array.create (nodes.Length) (Set.empty)
-
-    for variable in variables do 
-        if (variable <> "") then 
-            rd.[0] <- rd.[0].Add(variable, -1, 0)
-
-    let mutable over = false
-
-    while not over do 
-        let mutable newRd = false
-
-        for q in RP do
-            for (q1, alpha, q2) in (Set.toList edges) do
-                if q = q1 then
-                    count <- count + 1
-                    let variable =  leftPart alpha
-                    let mutable kill = Set.empty
-                    let mutable gen = Set.empty 
-
-                    if (variable <> "") then 
-                        gen <- gen.Add(variable, q1, q2)
-                    for q in (List.append nodes [-1]) do
-                        for q' in nodes do
-                            kill <- kill.Add(variable, q, q') 
-                    if not (Set.isSubset (Set.union (Set.difference rd.[q1] kill) gen) rd.[q2]) then
-                        newRd <- true
-                        rd.[q2] <- (Set.union rd.[q2] (Set.union (Set.difference rd.[q1] kill) gen))
-
-            if not newRd then 
-                over <- true
-
-    printfn "RD Post Order count:\n%A" count
-    rd
-
 //function that takes input from user and prints corresponding graphviz file if the given string has valid GCL syntax
 // and gets an error otherwise
 let rec compute n =
@@ -808,19 +1068,36 @@ let rec compute n =
         printfn "Enter a MicroC code: "
         // parse the input string (program)
         let ast = parse (Console.ReadLine())
-        printfn "AST:\n%A" ast
+        //printfn "AST:\n%A" ast
 
-        let pg = (edges 0 9 (Program ast))
-        printfn "PG:\n%A" pg
-        printfn "RD:\n%A" (format (reachingDefinitions pg))
+        let pg = (edges 0 6 (Program ast))
+        //printfn "PG:\n%A" pg
+        
+        //printfn "RD:\n%A" (format (reachingDefinitions pg))
         //printfn "RD Worklist Queue:\n%A" (format (reachingDefinitionsWorklistQueue pg))
         //printfn "RD Worklist Stack:\n%A" (format (reachingDefinitionsWorklistStack pg))
         //printfn "RD Post order:\n%A" (format (reachingDefinitionsRPO pg (reversePostOrder pg)))
-        printfn "LV:\n%A" (format (liveVariables pg))
-        printfn "DV:\n%A" (format (dangerousVariables pg))
-        printfn "FV:\n%A" (format (faintVariables pg))
-        printfn "DS:\n%A" (format (detectionOfSigns pg))
 
+        //printfn "LV:\n%A" (format (liveVariables pg))
+        //printfn "LV Worklist Queue:\n%A" (format (liveVariablesWorklistQueue pg))
+        //printfn "LV Worklist Stack:\n%A" (format (liveVariablesWorklistStack pg))
+        //printfn "LV Reverse Post order:\n%A" (format (liveVariablesRPO pg (reversePostOrder pg)))
+
+        //printfn "DV:\n%A" (format (dangerousVariables pg))
+        //printfn "DV Worklist Queue:\n%A" (format (dangerousVariablesWorklistQueue pg))
+        //printfn "DV Worklist Stack:\n%A" (format (dangerousVariablesWorklistStack pg))
+        //printfn "DV Reverse Post Order:\n%A" (format (dangerousVariablesRPO pg (reversePostOrder pg)))
+
+        printfn "FV:\n%A" (format (faintVariables pg))
+        printfn "FV Worklist Queue:\n%A" (format (faintVariablesWorklistQueue pg))
+        printfn "FV Worklist Stack:\n%A" (format (faintVariablesWorklistStack pg))
+        printfn "FV Reverse Post Order:\n%A" (format (faintVariablesRPO pg (reversePostOrder pg)))
+
+
+        //printfn "DS:\n%A" (format (detectionOfSigns pg))
+        //let pg = (edges 0 -1 ast) 
+        //printfn "PG:\n%A" pg
+        //printGraphviz pg
 
         fresh <- 0
         compute n 
