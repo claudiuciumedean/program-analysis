@@ -43,23 +43,25 @@ type Action =
 // Return the edges of the program graph for a program
 let rec edges qI qF p = 
     match p with 
-    | Program (Prog(d,s))   -> fresh <- fresh
-                               let q = fresh
-                               let e1 = edgesD qI q d
-                               let e2 = edgesS q qF s
+    | Program (Prog(d,s))   -> let e1 = edgesD qI d
+                               let q1 = fresh
+                               let e2 = edgesS q1 qF s
                                Set.union e1 e2
     | _                     -> Set.empty
 
 // Return the edges of the program graph for a declaration
-and edgesD qI qF d =
+and edgesD qI d =
     match d with 
-    | VariableDeclaration(l)  -> set [qI, Declaration(d), qF]
-    | ArrayDeclaration(a,l)   -> set [qI, Declaration(d), qF]
-    | RecordDeclaration(r)    -> set [qI, Declaration(d), qF]
-    | Declarations(d1,d2)     -> fresh <- fresh + 1
-                                 let q = fresh
-                                 let e1 = edgesD qI q d1
-                                 let e2 = edgesD q qF d2 
+    | VariableDeclaration(l)  -> fresh <- fresh + 1
+                                 set [qI, Declaration(d), qI + 1]
+    | ArrayDeclaration(a,l)   -> fresh <- fresh + 1
+                                 set [qI, Declaration(d), qI + 1]
+    | RecordDeclaration(r)    -> fresh <- fresh + 1
+                                 set [qI, Declaration(d), qI + 1]
+    | Declarations(d1,d2)     -> let q1 = fresh
+                                 let e1 = edgesD q1 d1
+                                 let q2 = fresh
+                                 let e2 = edgesD q2 d2 
                                  Set.union e1 e2
     | Epsilon -> Set.empty
 
@@ -808,19 +810,17 @@ let rec compute n =
         let ast = parse (Console.ReadLine())
         printfn "AST:\n%A" ast
 
-        let pg = (edges 0 6 (Program ast))
+        let pg = (edges 0 9 (Program ast))
         printfn "PG:\n%A" pg
         printfn "RD:\n%A" (format (reachingDefinitions pg))
-        printfn "RD Worklist Queue:\n%A" (format (reachingDefinitionsWorklistQueue pg))
-        printfn "RD Worklist Stack:\n%A" (format (reachingDefinitionsWorklistStack pg))
+        //printfn "RD Worklist Queue:\n%A" (format (reachingDefinitionsWorklistQueue pg))
+        //printfn "RD Worklist Stack:\n%A" (format (reachingDefinitionsWorklistStack pg))
+        //printfn "RD Post order:\n%A" (format (reachingDefinitionsRPO pg (reversePostOrder pg)))
         printfn "LV:\n%A" (format (liveVariables pg))
         printfn "DV:\n%A" (format (dangerousVariables pg))
         printfn "FV:\n%A" (format (faintVariables pg))
         printfn "DS:\n%A" (format (detectionOfSigns pg))
-        printfn "RD Post order:\n%A" (format (reachingDefinitionsRPO pg (reversePostOrder pg)))
-        //let pg = (edges 0 -1 ast) 
-        //printfn "PG:\n%A" pg
-        //printGraphviz pg
+
 
         fresh <- 0
         compute n 
@@ -835,3 +835,12 @@ compute 3
 // sets = sets ((Set x -> Set -) (y -> Set -)), (Set x -> Set -) (y -> Set -)), (Set x -> Set -) (y -> Set -)), (Set x -> Set -) (y -> Set -))
 
  
+ /// MICROC EXAMPLES
+ /// 
+ /// INSERTION SORT:
+ /// {i:=1; while (i < n) {j := i; while (j>0 & A[j-1] > A[j]) {t:=A[j];A[j]:=A[j-1];A[j-1]:=t;j:=j-1;}i:=i+1;}}
+ /// 
+ /// 
+ /// {int y; int q; int r; if (x>=0 & y>0) {q:=0; r:=x; while (r>=y) {r:=r-y; q:=q+1;} write r;}}
+ /// 
+ /// {int x;int y; int i; while (i<n) {if (A[i]>0) {x:=x+A[i];i:=i+1;}else{ y:=y+A[i];i:=i+1;}}}
