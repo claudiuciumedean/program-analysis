@@ -230,7 +230,7 @@ let rec DFS edges (node: int) (T, V, (K: int), rP) =
 
     (newT, newV, newK, newRP)
 
-let reversePostOrder edges =
+let reversePostOrder edges reverse =
     let size = (getNodes edges).Length
     let mutable T = Set.empty
     let mutable V = Set.empty
@@ -238,7 +238,11 @@ let reversePostOrder edges =
     let mutable rP = Array.create size (-1)
 
     let mutable (T', V', K', rP') = DFS edges 0 (T, V, K, rP)
-    T', rP'
+
+    if reverse = true then
+        T', Array.rev(rP')
+    else 
+        T', rP'
 
 // Return the reaching definition analysis of the program graph
 let reachingDefinitions edges = 
@@ -1076,22 +1080,22 @@ let rec compute n =
         //printfn "RD:\n%A" (format (reachingDefinitions pg))
         //printfn "RD Worklist Queue:\n%A" (format (reachingDefinitionsWorklistQueue pg))
         //printfn "RD Worklist Stack:\n%A" (format (reachingDefinitionsWorklistStack pg))
-        //printfn "RD Post order:\n%A" (format (reachingDefinitionsRPO pg (reversePostOrder pg)))
+        //printfn "RD Post order:\n%A" (format (reachingDefinitionsRPO pg (reversePostOrder pg false)))
 
         //printfn "LV:\n%A" (format (liveVariables pg))
         //printfn "LV Worklist Queue:\n%A" (format (liveVariablesWorklistQueue pg))
         //printfn "LV Worklist Stack:\n%A" (format (liveVariablesWorklistStack pg))
-        //printfn "LV Reverse Post order:\n%A" (format (liveVariablesRPO pg (reversePostOrder pg)))
+        //printfn "LV Reverse Post order:\n%A" (format (liveVariablesRPO pg (reversePostOrder pg true)))
 
-        //printfn "DV:\n%A" (format (dangerousVariables pg))
-        //printfn "DV Worklist Queue:\n%A" (format (dangerousVariablesWorklistQueue pg))
-        //printfn "DV Worklist Stack:\n%A" (format (dangerousVariablesWorklistStack pg))
-        //printfn "DV Reverse Post Order:\n%A" (format (dangerousVariablesRPO pg (reversePostOrder pg)))
+        printfn "DV:\n%A" (format (dangerousVariables pg))
+        printfn "DV Worklist Queue:\n%A" (format (dangerousVariablesWorklistQueue pg))
+        printfn "DV Worklist Stack:\n%A" (format (dangerousVariablesWorklistStack pg))
+        printfn "DV Reverse Post Order:\n%A" (format (dangerousVariablesRPO pg (reversePostOrder pg false)))
 
         printfn "FV:\n%A" (format (faintVariables pg))
         printfn "FV Worklist Queue:\n%A" (format (faintVariablesWorklistQueue pg))
         printfn "FV Worklist Stack:\n%A" (format (faintVariablesWorklistStack pg))
-        printfn "FV Reverse Post Order:\n%A" (format (faintVariablesRPO pg (reversePostOrder pg)))
+        printfn "FV Reverse Post Order:\n%A" (format (faintVariablesRPO pg (reversePostOrder pg true)))
 
 
         //printfn "DS:\n%A" (format (detectionOfSigns pg))
@@ -1115,9 +1119,9 @@ compute 3
  /// MICROC EXAMPLES
  /// 
  /// INSERTION SORT:
- /// {i:=1; while (i < n) {j := i; while (j>0 & A[j-1] > A[j]) {t:=A[j];A[j]:=A[j-1];A[j-1]:=t;j:=j-1;}i:=i+1;}}
+ /// {i:=1; while (i < n) {j := i; while (j>0 & A[j-1] > A[j]) {t:=A[j];A[j]:=A[j-1];A[j-1]:=t;j:=j-1;}i:=i+1;}} -> 9 edges
  /// 
  /// 
  /// {int y; int q; int r; if (x>=0 & y>0) {q:=0; r:=x; while (r>=y) {r:=r-y; q:=q+1;} write r;}}
  /// 
- /// {int x;int y; int i; while (i<n) {if (A[i]>0) {x:=x+A[i];i:=i+1;}else{ y:=y+A[i];i:=i+1;}}}
+ /// {int x;int y; int i; while (i<n) {if (A[i]>0) {x:=x+A[i];i:=i+1;}else{ y:=y+A[i];i:=i+1;}}} -> 9 edges
