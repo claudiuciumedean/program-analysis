@@ -4,8 +4,8 @@
 // Windows (Stina)
 //#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 // Julien 
-//#r "/Users/Julien/F#/FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
-#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
+#r "/Users/Julien/F#/FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
+//#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 
 // import of modules, including lexer and parser
 open FSharp.Text.Lexing
@@ -282,14 +282,11 @@ let reachingDefinitionsWorklistQueue edges =
     let (SV, SA, SR) = getVariables edges
     let variables = Set.union (SV) (Set.union SA SR)
     let rd = Array.create (nodes.Length) (Set.empty)
-    let mutable w =[]
+    let mutable w =[nodes.[0]]
 
     for variable in variables do 
         if (variable <> "") then 
             rd.[0] <- rd.[0].Add(variable, -1, 0)
-
-    for node in nodes do
-        w <- w @ [node]
 
     while not w.IsEmpty do
         let q = w.Head
@@ -319,12 +316,10 @@ let reachingDefinitionsWorklistStack edges =
     let (SV, SA, SR) = getVariables edges
     let variables = Set.union (SV) (Set.union SA SR)
     let rd = Array.create (nodes.Length) (Set.empty)
-    let mutable w =[]
+    let mutable w =[nodes.[0]]
     for variable in variables do 
         if (variable <> "") then 
             rd.[0] <- rd.[0].Add(variable, -1, 0)
-    for node in nodes do
-        w <- [node] @ w
     while not w.IsEmpty do
         let q = w.Head
         w <- w.Tail
@@ -472,13 +467,9 @@ let liveVariables edges =
  
 let liveVariablesWorklistQueue edges =
     let mutable count = 0
-    let mutable w = []
-
     let nodes = getNodes edges
+    let mutable w = [nodes.[nodes.Length - 1]]
     let liveVariablesArr = Array.create (nodes.Length) (Set.empty)
-
-    for node in nodes do
-        w <- w @ [node]
 
     while not w.IsEmpty do
         let q = w.Head
@@ -500,13 +491,9 @@ let liveVariablesWorklistQueue edges =
 
 let liveVariablesWorklistStack edges =
     let mutable count = 0
-    let mutable w = []
-
     let nodes = getNodes edges
+    let mutable w = [nodes.[nodes.Length - 1]]
     let liveVariablesArr = Array.create (nodes.Length) (Set.empty)
-
-    for node in nodes do
-        w <- [node] @ w
 
     while not w.IsEmpty do
         let q = w.Head
@@ -600,9 +587,8 @@ let dangerousVariables edges =
 
 let dangerousVariablesWorklistQueue edges = 
     let mutable count = 0
-    let mutable w = []
-
     let nodes = getNodes edges
+    let mutable w = [nodes.[0]]
     let (SV, SA, SR) = getVariables edges
     let variables = Set.union SV (Set.union SA SR)
     let dv = Array.create (nodes.Length) (Set.empty)
@@ -610,9 +596,6 @@ let dangerousVariablesWorklistQueue edges =
     for variable in variables do
         if (variable <> "") then 
             dv.[0] <- dv.[0].Add(variable)
-
-    for node in nodes do
-        w <- w @ [node]
 
     while not w.IsEmpty do 
         let q = w.Head
@@ -632,9 +615,8 @@ let dangerousVariablesWorklistQueue edges =
 
 let dangerousVariablesWorklistStack edges = 
     let mutable count = 0
-    let mutable w = []
-
     let nodes = getNodes edges
+    let mutable w = [nodes.[0]]
     let (SV, SA, SR) = getVariables edges
     let variables = Set.union SV (Set.union SA SR)
     let dv = Array.create (nodes.Length) (Set.empty)
@@ -642,9 +624,6 @@ let dangerousVariablesWorklistStack edges =
     for variable in variables do
         if (variable <> "") then 
             dv.[0] <- dv.[0].Add(variable)
-
-    for node in nodes do
-        w <- [node] @ w
 
     while not w.IsEmpty do 
         let q = w.Head
@@ -739,10 +718,7 @@ let faintVariablesWorklistQueue edges =
     let nodes = getNodes edges
     let fv = Array.create (nodes.Length) (Set.empty)
     let mutable count = 0
-    let mutable w = []
-
-    for node in nodes do
-        w <- w @ [node]
+    let mutable w = [nodes.[nodes.Length - 1]]
 
     while not w.IsEmpty do
         let q = w.Head
@@ -763,10 +739,7 @@ let faintVariablesWorklistStack edges =
     let nodes = getNodes edges
     let fv = Array.create (nodes.Length) (Set.empty)
     let mutable count = 0
-    let mutable w = []
-
-    for node in nodes do
-        w <- [node] @ w
+    let mutable w = [nodes.[nodes.Length - 1]]
 
     while not w.IsEmpty do
         let q = w.Head
@@ -1018,6 +991,7 @@ let mapUnion (sV1, sA1, sR1) (sV2, sA2, sR2) (SV, SA, SR) =
 
 let detectionOfSigns edges = 
     let nodes = getNodes edges
+    let mutable count = 0
     let (SV, SA, SR) = getVariables edges
     let res = Array.create (nodes.Length) (Map.empty, Map.empty, Map.empty)
     for V in SV do 
@@ -1045,11 +1019,138 @@ let detectionOfSigns edges =
     while not over do 
         let mutable newDS = false
         for (q1, alpha, q2) in (Set.toList edges) do
+            count <- count + 1
             if not (isSubMap (SHatDS alpha (res.[q1]) (SV, SA, SR)) (res.[q2]) (SV, SA, SR)) then
                 newDS <- true
                 res.[q2] <- (mapUnion res.[q2] (SHatDS alpha (res.[q1]) (SV, SA, SR)) (SV, SA, SR))
         if not newDS then 
             over <- true 
+    printfn "DS Chaotic count:\n%A" count
+    res
+
+let detectionOfSignsQueue edges = 
+    let nodes = getNodes edges
+    let mutable count = 0
+    let mutable w = [nodes.[0]]
+    let (SV, SA, SR) = getVariables edges
+    let res = Array.create (nodes.Length) (Map.empty, Map.empty, Map.empty)
+    for V in SV do 
+        if (V <> "") then 
+            let (a, b, c) = res.[0]
+            res.[0] <- (Map.add V (set ['-';'0';'+']) a, b, c)
+            for i in 1..nodes.Length-1 do 
+                let (a,b,c) = res.[i]
+                res.[i] <- (Map.add V (set []) a, b, c)
+    for A in SA do 
+        if (A <> "") then 
+            let (a, b, c) = res.[0]
+            res.[0] <- (a, Map.add A (set ['-';'0';'+']) b, c)
+            for i in 1..nodes.Length-1 do 
+                let (a,b,c) = res.[i]
+                res.[i] <- (a, Map.add A (set []) b, c)
+    for R in SR do 
+        if (R <> "") then 
+            let (a, b, c) = res.[0]
+            res.[0] <- (a, b, Map.add (R + ".fst)") (set ['-';'0';'+'])  (Map.add (R + ".snd") (set ['-';'0';'+']) c))
+            for i in 1..nodes.Length-1 do 
+                let (a,b,c) = res.[i]
+                res.[i] <- (a, b, Map.add (R + ".fst)") (set [])  (Map.add (R + ".snd") (set []) c))
+
+    while not w.IsEmpty do 
+        let q = w.Head
+        w <- w.Tail
+        for (q1, alpha, q2) in (Set.toList edges) do
+            if q =q1 then
+                count <- count + 1
+                if not (isSubMap (SHatDS alpha (res.[q1]) (SV, SA, SR)) (res.[q2]) (SV, SA, SR)) then
+                    res.[q2] <- (mapUnion res.[q2] (SHatDS alpha (res.[q1]) (SV, SA, SR)) (SV, SA, SR))
+                    if not (List.exists ((=) q2) w) then
+                        w <- w @ [q2]
+    printfn "DS Worklist Queue count:\n%A" count
+    res
+
+let detectionOfSignsStack edges = 
+    let nodes = getNodes edges
+    let mutable count = 0
+    let mutable w = [nodes.[0]]
+    let (SV, SA, SR) = getVariables edges
+    let res = Array.create (nodes.Length) (Map.empty, Map.empty, Map.empty)
+    for V in SV do 
+        if (V <> "") then 
+            let (a, b, c) = res.[0]
+            res.[0] <- (Map.add V (set ['-';'0';'+']) a, b, c)
+            for i in 1..nodes.Length-1 do 
+                let (a,b,c) = res.[i]
+                res.[i] <- (Map.add V (set []) a, b, c)
+    for A in SA do 
+        if (A <> "") then 
+            let (a, b, c) = res.[0]
+            res.[0] <- (a, Map.add A (set ['-';'0';'+']) b, c)
+            for i in 1..nodes.Length-1 do 
+                let (a,b,c) = res.[i]
+                res.[i] <- (a, Map.add A (set []) b, c)
+    for R in SR do 
+        if (R <> "") then 
+            let (a, b, c) = res.[0]
+            res.[0] <- (a, b, Map.add (R + ".fst)") (set ['-';'0';'+'])  (Map.add (R + ".snd") (set ['-';'0';'+']) c))
+            for i in 1..nodes.Length-1 do 
+                let (a,b,c) = res.[i]
+                res.[i] <- (a, b, Map.add (R + ".fst)") (set [])  (Map.add (R + ".snd") (set []) c))
+
+    while not w.IsEmpty do 
+        let q = w.Head
+        w <- w.Tail
+        for (q1, alpha, q2) in (Set.toList edges) do
+            if q = q1 then
+                count <- count + 1
+                if not (isSubMap (SHatDS alpha (res.[q1]) (SV, SA, SR)) (res.[q2]) (SV, SA, SR)) then
+                    res.[q2] <- (mapUnion res.[q2] (SHatDS alpha (res.[q1]) (SV, SA, SR)) (SV, SA, SR))
+                    if not (List.exists ((=) q2) w) then
+                        w <- [q2] @ w 
+    printfn "DS Worklist Stack count:\n%A" count
+    res
+
+let detectionOfSignsRPO edges (T,RP) = 
+    let nodes = getNodes edges
+    let mutable count = 0
+    let (SV, SA, SR) = getVariables edges
+    let res = Array.create (nodes.Length) (Map.empty, Map.empty, Map.empty)
+    for V in SV do 
+        if (V <> "") then 
+            let (a, b, c) = res.[0]
+            res.[0] <- (Map.add V (set ['-';'0';'+']) a, b, c)
+            for i in 1..nodes.Length-1 do 
+                let (a,b,c) = res.[i]
+                res.[i] <- (Map.add V (set []) a, b, c)
+    for A in SA do 
+        if (A <> "") then 
+            let (a, b, c) = res.[0]
+            res.[0] <- (a, Map.add A (set ['-';'0';'+']) b, c)
+            for i in 1..nodes.Length-1 do 
+                let (a,b,c) = res.[i]
+                res.[i] <- (a, Map.add A (set []) b, c)
+    for R in SR do 
+        if (R <> "") then 
+            let (a, b, c) = res.[0]
+            res.[0] <- (a, b, Map.add (R + ".fst)") (set ['-';'0';'+'])  (Map.add (R + ".snd") (set ['-';'0';'+']) c))
+            for i in 1..nodes.Length-1 do 
+                let (a,b,c) = res.[i]
+                res.[i] <- (a, b, Map.add (R + ".fst)") (set [])  (Map.add (R + ".snd") (set []) c))
+    
+    let mutable over = false
+    while not over do
+        let mutable newDS = false
+
+        for q in RP do
+            for (q1, alpha, q2) in (Set.toList edges) do
+                if q =q1 then
+                    count <- count + 1
+                    if not (isSubMap (SHatDS alpha (res.[q1]) (SV, SA, SR)) (res.[q2]) (SV, SA, SR)) then
+                        newDS <- true
+                        res.[q2] <- (mapUnion res.[q2] (SHatDS alpha (res.[q1]) (SV, SA, SR)) (SV, SA, SR))
+            if not newDS then 
+                over <- true
+    printfn "DS Post Order count:\n%A" count
     res
 
 
@@ -1074,18 +1175,18 @@ let rec compute n =
         let ast = parse (Console.ReadLine())
         //printfn "AST:\n%A" ast
 
-        let pg = (edges 0 6 (Program ast))
-        //printfn "PG:\n%A" pg
+        let pg = (edges 0 9 (Program ast))
+        printfn "PG:\n%A" pg
         
-        //printfn "RD:\n%A" (format (reachingDefinitions pg))
-        //printfn "RD Worklist Queue:\n%A" (format (reachingDefinitionsWorklistQueue pg))
-        //printfn "RD Worklist Stack:\n%A" (format (reachingDefinitionsWorklistStack pg))
-        //printfn "RD Post order:\n%A" (format (reachingDefinitionsRPO pg (reversePostOrder pg false)))
+        printfn "RD:\n%A" (format (reachingDefinitions pg))
+        printfn "RD Worklist Queue:\n%A" (format (reachingDefinitionsWorklistQueue pg))
+        printfn "RD Worklist Stack:\n%A" (format (reachingDefinitionsWorklistStack pg))
+        printfn "RD Post order:\n%A" (format (reachingDefinitionsRPO pg (reversePostOrder pg false)))
 
-        //printfn "LV:\n%A" (format (liveVariables pg))
-        //printfn "LV Worklist Queue:\n%A" (format (liveVariablesWorklistQueue pg))
-        //printfn "LV Worklist Stack:\n%A" (format (liveVariablesWorklistStack pg))
-        //printfn "LV Reverse Post order:\n%A" (format (liveVariablesRPO pg (reversePostOrder pg true)))
+        printfn "LV:\n%A" (format (liveVariables pg))
+        printfn "LV Worklist Queue:\n%A" (format (liveVariablesWorklistQueue pg))
+        printfn "LV Worklist Stack:\n%A" (format (liveVariablesWorklistStack pg))
+        printfn "LV Reverse Post order:\n%A" (format (liveVariablesRPO pg (reversePostOrder pg true)))
 
         printfn "DV:\n%A" (format (dangerousVariables pg))
         printfn "DV Worklist Queue:\n%A" (format (dangerousVariablesWorklistQueue pg))
@@ -1097,8 +1198,11 @@ let rec compute n =
         printfn "FV Worklist Stack:\n%A" (format (faintVariablesWorklistStack pg))
         printfn "FV Reverse Post Order:\n%A" (format (faintVariablesRPO pg (reversePostOrder pg true)))
 
+        printfn "DS:\n%A" (format (detectionOfSigns pg))
+        printfn "DS Worklist Queue:\n%A" (format (detectionOfSignsQueue pg))
+        printfn "DS Worklist Stack:\n%A" (format (detectionOfSignsStack pg))
+        printfn "DS Reverse Post Order:\n%A" (format (detectionOfSignsRPO pg (reversePostOrder pg true)))
 
-        //printfn "DS:\n%A" (format (detectionOfSigns pg))
         //let pg = (edges 0 -1 ast) 
         //printfn "PG:\n%A" pg
         //printGraphviz pg
