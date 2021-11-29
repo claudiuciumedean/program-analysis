@@ -1148,8 +1148,8 @@ let detectionOfSignsRPO edges (T,RP) =
                     if not (isSubMap (SHatDS alpha (res.[q1]) (SV, SA, SR)) (res.[q2]) (SV, SA, SR)) then
                         newDS <- true
                         res.[q2] <- (mapUnion res.[q2] (SHatDS alpha (res.[q1]) (SV, SA, SR)) (SV, SA, SR))
-            if not newDS then 
-                over <- true
+        if not newDS then 
+            over <- true
     printfn "DS Post Order count:\n%A" count
     res
 
@@ -1229,3 +1229,8 @@ compute 3
  /// {int y; int q; int r; if (x>=0 & y>0) {q:=0; r:=x; while (r>=y) {r:=r-y; q:=q+1;} write r;}}
  /// 
  /// {int x;int y; int i; while (i<n) {if (A[i]>0) {x:=x+A[i];i:=i+1;}else{ y:=y+A[i];i:=i+1;}}} -> 9 edges
+ /// 
+ /// 4 loops
+ /// {int x; while (x<5) {x:=x+1;} while (x<10) {x:=x+1;} while (y<10) {y:=x+y;} while (y<15) {y:=y+1;}}
+ /// 4 nested loops
+ /// {int x; while (x<5) {x:=x+1; while (x<10) {x:=x+1; while (y<10) {y:=x+y; while (y<15) {y:=y+1;}}}}}
