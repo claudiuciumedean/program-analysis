@@ -4,8 +4,8 @@
 // Windows (Stina)
 //#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 // Julien 
-#r "/Users/Julien/F#/FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
-//#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
+//#r "/Users/Julien/F#/FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
+#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 
 // import of modules, including lexer and parser
 open FSharp.Text.Lexing
@@ -1176,7 +1176,7 @@ let rec compute n =
         //printfn "AST:\n%A" ast
 
         let pg = (edges 0 9 (Program ast))
-        printfn "PG:\n%A" pg
+        //printfn "PG:\n%A" pg
         
         printfn "RD:\n%A" (format (reachingDefinitions pg))
         printfn "RD Worklist Queue:\n%A" (format (reachingDefinitionsWorklistQueue pg))
@@ -1201,7 +1201,7 @@ let rec compute n =
         printfn "DS:\n%A" (format (detectionOfSigns pg))
         printfn "DS Worklist Queue:\n%A" (format (detectionOfSignsQueue pg))
         printfn "DS Worklist Stack:\n%A" (format (detectionOfSignsStack pg))
-        printfn "DS Reverse Post Order:\n%A" (format (detectionOfSignsRPO pg (reversePostOrder pg true)))
+        printfn "DS Reverse Post Order:\n%A" (detectionOfSignsRPO pg (reversePostOrder pg false))
 
         //let pg = (edges 0 -1 ast) 
         //printfn "PG:\n%A" pg
