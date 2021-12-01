@@ -21,7 +21,7 @@ open ParserTypes
 %start start
 
 // spefication of the return type of each of the non-terminal symbols
-// where C is starting symbol as specified by the given GCL language
+// where C is starting symbol as specified by the given MicroC language
 %type <program> start
 %type <decl> decl
 %type <exprl> exprl

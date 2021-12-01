@@ -4,21 +4,21 @@
 // Windows (Stina)
 //#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 // Julien 
-//#r "/Users/Julien/F#/FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
-#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
+#r "/Users/Julien/F#/FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
+//#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 
 // import of modules, including lexer and parser
 open FSharp.Text.Lexing
 open System
 #load "ParserTypes.fs"
 open ParserTypes
-#load "GCLParser.fs"
-open GCLParser
-#load "GCLLexer.fs"
-open GCLLexer
+#load "MicroCParser.fs"
+open MicroCParser
+#load "MicroCLexer.fs"
+open MicroCLexer
 
-#load "GCLSignOperators.fsx"
-open GCLSignOperators
+#load "MicroCSignOperators.fsx"
+open MicroCSignOperators
 
 let mutable fresh = 0
 
@@ -27,7 +27,7 @@ let parse input =
     // translate string into a buffer of characters
     let lexbuf = LexBuffer<char>.FromString input
     // translate the buffer into a stream of tokens and parse them
-    let res = GCLParser.start GCLLexer.tokenize lexbuf
+    let res = MicroCParser.start MicroCLexer.tokenize lexbuf
     // return the result of parsing
     res
 
@@ -1193,7 +1193,7 @@ let format (arr: Array) =
         key <- key + 1
     map
 
-//function that takes input from user and prints corresponding graphviz file if the given string has valid GCL syntax
+//function that takes input from user and prints corresponding graphviz file if the given string has valid MicroC syntax
 // and gets an error otherwise
 let rec compute n =
     if n = 0 then

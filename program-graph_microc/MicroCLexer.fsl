@@ -1,9 +1,9 @@
 {
-module GCLLexer
+module MicroCLexer
 open FSharp.Text.Lexing
 open System
 // open token module
-open GCLParser
+open MicroCParser
 }
 
 // define certain regular expressions

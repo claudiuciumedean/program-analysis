@@ -1,4 +1,4 @@
-module GCLSignOperators
+module MicroCSignOperators
 
 let plusop s1 s2 = 
     match s1, s2 with
