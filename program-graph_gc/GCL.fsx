@@ -4,8 +4,8 @@
 // Windows (Stina)
 //#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 // Julien 
-#r "/Users/Julien/F#/FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
-//#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
+//#r "/Users/Julien/F#/FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
+#r "FsLexYacc.Runtime.10.0.0/lib/net46/FsLexYacc.Runtime.dll"
 
 // import of modules, including lexer and parser
 open FSharp.Text.Lexing
@@ -1205,7 +1205,7 @@ let rec compute n =
         //printfn "AST:\n%A" ast
 
         let pg = (edges 0 9 (Program ast))
-        printfn "PG:\n%A" pg
+        //printfn "PG:\n%A" pg
         
         printfn "Reverse Post order:\n%A" (reversePostOrder pg false)
         printfn "Reverse Reverse Post order:\n%A" (reversePostOrder pg true)
