@@ -230,6 +230,36 @@ let rec DFS edges (node: int) (T, V, (K: int), rP) =
 
     (newT, newV, newK, newRP)
 
+let rec DFSReverse edges (node: int) (T, V, (K: int), rP) =
+    let mutable newT = T
+    let mutable newV = Set.union V (Set[node])
+    let mutable newK = K
+    let mutable newRP = Array.copy rP
+
+    let mutable over = false
+
+    while not over do
+        let mutable newDFS = false
+
+        for (q1, alpha, q2) in (Set.toList edges) do
+            if q2 = node && (not (Set.contains q1 (newV))) then
+                newDFS <- true
+                newT <- Set.union newT (Set[(q2, q1)])
+                let (newT', newV', newK', newRP') = DFSReverse edges q1 (newT, newV, newK, newRP)
+
+                newT <- newT'
+                newV <- newV'
+                newK <- newK'
+                newRP <- newRP'
+    
+        if not newDFS then
+            over <- true
+
+    newRP.[newK - 1] <- node
+    newK <- newK - 1
+
+    (newT, newV, newK, newRP)
+
 let reversePostOrder edges reverse =
     let size = (getNodes edges).Length
     let mutable T = Set.empty
@@ -237,12 +267,13 @@ let reversePostOrder edges reverse =
     let mutable K = size
     let mutable rP = Array.create size (-1)
 
-    let mutable (T', V', K', rP') = DFS edges 0 (T, V, K, rP)
-
-    if reverse = true then
-        T', Array.rev(rP')
-    else 
+    if reverse then
+        let mutable (T', V', K', rP') = DFSReverse edges (size-1) (T, V, K, rP)
         T', rP'
+    else 
+        let mutable (T', V', K', rP') = DFS edges 0 (T, V, K, rP)
+        T', rP'
+    
 
 // Return the reaching definition analysis of the program graph
 let reachingDefinitions edges = 
@@ -518,7 +549,6 @@ let liveVariablesRPO edges (T, RP) =
     let nodes = getNodes edges
     let liveVariablesArr = Array.create (nodes.Length) (Set.empty)
     let mutable terminate = false
-    printfn "RP:%A" RP
     while not terminate do
         let mutable new_lv = false
 
@@ -554,10 +584,9 @@ let SDV alpha DV = match alpha with
                                                       | SecondRecordL(R) -> if Set.isEmpty (Set.intersect (fv (ExprA(a))) (DV)) then DV else (Set.union DV (Set[R]))
                                        | RecordAss(R, a1, a2) -> if Set.isEmpty (Set.intersect (Set.union (fv (ExprA(a1))) (fv (ExprA(a2)))) (DV)) then (Set.difference DV (Set[R])) else (Set.union DV (Set[R]))
                                        | Read(l) -> match l with 
-                                                     | VariableL(x) -> Set.union DV (Set[x])
-                                                     | ArrayExpressionL(A,_) -> Set.union DV (Set[A])
-                                                     | FirstRecordL(R) -> Set.union DV (Set[R])
-                                                     | SecondRecordL(R) -> Set.union DV (Set[R])
+                                                     | VariableL(x) -> Set.difference DV (Set[x])
+                                                     | ArrayExpressionL(A,a) -> if Set.isEmpty (Set.intersect (fv (ExprA(a))) (DV)) then DV else Set.union DV (Set[A])
+                                                     | _ -> DV
                                        | _ -> DV
                     | _ -> DV
 
@@ -689,7 +718,7 @@ let SFV alpha FV = match alpha with
                                                      | ArrayExpressionL(A,_) -> Set.difference FV (Set[A])
                                                      | FirstRecordL(R) -> Set.difference FV (Set[R])
                                                      | SecondRecordL(R) -> Set.difference FV (Set[R])
-                                       | Write(a) -> Set.union (fv (ExprA(a))) (FV)
+                                       | Write(a) -> Set.union(FV) (fv (ExprA(a))) 
                                        | _ -> FV
                     | ExprB(b) -> Set.union (fv (ExprB(b))) (FV)
                     | _ -> FV
@@ -1178,30 +1207,33 @@ let rec compute n =
         let pg = (edges 0 9 (Program ast))
         printfn "PG:\n%A" pg
         
+        printfn "Reverse Post order:\n%A" (reversePostOrder pg false)
+        printfn "Reverse Reverse Post order:\n%A" (reversePostOrder pg true)
+
         printfn "RD:\n%A" (format (reachingDefinitions pg))
-        printfn "RD Worklist Queue:\n%A" (format (reachingDefinitionsWorklistQueue pg))
-        printfn "RD Worklist Stack:\n%A" (format (reachingDefinitionsWorklistStack pg))
+        //printfn "RD Worklist Queue:\n%A" (format (reachingDefinitionsWorklistQueue pg))
+        //printfn "RD Worklist Stack:\n%A" (format (reachingDefinitionsWorklistStack pg))
         printfn "RD Post order:\n%A" (format (reachingDefinitionsRPO pg (reversePostOrder pg false)))
 
         printfn "LV:\n%A" (format (liveVariables pg))
-        printfn "LV Worklist Queue:\n%A" (format (liveVariablesWorklistQueue pg))
-        printfn "LV Worklist Stack:\n%A" (format (liveVariablesWorklistStack pg))
+        //printfn "LV Worklist Queue:\n%A" (format (liveVariablesWorklistQueue pg))
+        //printfn "LV Worklist Stack:\n%A" (format (liveVariablesWorklistStack pg))
         printfn "LV Reverse Post order:\n%A" (format (liveVariablesRPO pg (reversePostOrder pg true)))
 
         printfn "DV:\n%A" (format (dangerousVariables pg))
-        printfn "DV Worklist Queue:\n%A" (format (dangerousVariablesWorklistQueue pg))
-        printfn "DV Worklist Stack:\n%A" (format (dangerousVariablesWorklistStack pg))
+        //printfn "DV Worklist Queue:\n%A" (format (dangerousVariablesWorklistQueue pg))
+        //printfn "DV Worklist Stack:\n%A" (format (dangerousVariablesWorklistStack pg))
         printfn "DV Reverse Post Order:\n%A" (format (dangerousVariablesRPO pg (reversePostOrder pg false)))
 
         printfn "FV:\n%A" (format (faintVariables pg))
-        printfn "FV Worklist Queue:\n%A" (format (faintVariablesWorklistQueue pg))
-        printfn "FV Worklist Stack:\n%A" (format (faintVariablesWorklistStack pg))
+        //printfn "FV Worklist Queue:\n%A" (format (faintVariablesWorklistQueue pg))
+        //printfn "FV Worklist Stack:\n%A" (format (faintVariablesWorklistStack pg))
         printfn "FV Reverse Post Order:\n%A" (format (faintVariablesRPO pg (reversePostOrder pg true)))
 
         printfn "DS:\n%A" (format (detectionOfSigns pg))
-        printfn "DS Worklist Queue:\n%A" (format (detectionOfSignsQueue pg))
-        printfn "DS Worklist Stack:\n%A" (format (detectionOfSignsStack pg))
-        printfn "DS Reverse Post Order:\n%A" (format (detectionOfSignsRPO pg (reversePostOrder pg true)))
+        //printfn "DS Worklist Queue:\n%A" (format (detectionOfSignsQueue pg))
+        //printfn "DS Worklist Stack:\n%A" (format (detectionOfSignsStack pg))
+        printfn "DS Reverse Post Order:\n%A" (format (detectionOfSignsRPO pg (reversePostOrder pg false)))
 
         //let pg = (edges 0 -1 ast) 
         //printfn "PG:\n%A" pg
@@ -1226,7 +1258,8 @@ compute 3
  /// {i:=1; while (i < n) {j := i; while (j>0 & A[j-1] > A[j]) {t:=A[j];A[j]:=A[j-1];A[j-1]:=t;j:=j-1;}i:=i+1;}} -> 9 edges
  /// 
  /// 
- /// {int y; int q; int r; if (x>=0 & y>0) {q:=0; r:=x; while (r>=y) {r:=r-y; q:=q+1;} write r;}}
+ /// {int y; int q; int r; if (x>=0 & y>0) {q:=0; r:=x; while (r>=y) {r:=r-y; q:=q+1;} write r;}}  -> 10 edges
+ /// {int y; int q; int r; int x; if (x>=0 & y>0) {q:=0; r:=x; while (r>=y) {r:=r-y; q:=q+1;} write r;}}  -> 11 edges
  /// 
  /// {int x;int y; int i; while (i<n) {if (A[i]>0) {x:=x+A[i];i:=i+1;}else{ y:=y+A[i];i:=i+1;}}} -> 9 edges
  /// 
