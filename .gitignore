@@ -1,9 +1,9 @@
-program-graph_microc/FSharp.Core.4.3.4/
-program-graph_microc/FsLexYacc.10.0.0/
-program-graph_microc/FsLexYacc.Runtime.10.0.0/
-program-graph_microc/MicroCLexer.fs
-program-graph_microc/MicroCParser.fs
-program-graph_microc/MicroCParser.fsi
+program-graph_gc/FSharp.Core.4.3.4/
+program-graph_gc/FsLexYacc.10.0.0/
+program-graph_gc/FsLexYacc.Runtime.10.0.0/
+program-graph_gc/MicroCLexer.fs
+program-graph_gc/MicroCParser.fs
+program-graph_gc/MicroCParser.fsi
 
 .DS_Store
 .fake
